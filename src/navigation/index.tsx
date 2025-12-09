@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthStack } from './stacks';
-import * as SplashScreen from 'expo-splash-screen';
+import * as ExpoSplashScreen from 'expo-splash-screen';
 import useAuthStore from '../store/useAuthStore';
 import useThemeStore from '../store/useThemeStore';
-import { StatusBar, View } from 'react-native';
+import { StatusBar, Animated } from 'react-native';
 import { MainTabs } from './tabs';
+import { SplashScreen as CustomSplashScreen } from '../screens';
 
 /**
  * Application Navigation Flow
@@ -24,7 +25,7 @@ import { MainTabs } from './tabs';
  * 
  */
 
-SplashScreen.preventAutoHideAsync(); // keep native splash visible
+ExpoSplashScreen.preventAutoHideAsync(); // keep native splash visible
 
 export default function Navigator() {
   const theme = useThemeStore((state) => state.theme);
@@ -32,19 +33,37 @@ export default function Navigator() {
   const setUser = useAuthStore((state) => state.setUser);
 
   const [appIsReady, setAppIsReady] = useState(false);
+  const [showCustomSplash, setShowCustomSplash] = useState(true);
+  const fadeAnim = useState(new Animated.Value(1))[0];
 
   useEffect(() => {
     const prepare = async () => {
       try {
+        // Hide expo splash immediately since we're using custom splash
+        await ExpoSplashScreen.hideAsync();
+        
+        // Show custom splash for 5 seconds
+        setTimeout(() => {
+          // Start fade animation
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 500, // 0.5 second fade duration
+            useNativeDriver: true,
+          }).start(() => {
+            setShowCustomSplash(false);
+          });
+        }, 5000); // Show for 5 seconds
+        
+        // Simulate auth check (you can replace this with actual auth logic)
         // const token = await retrieveTokenSecurely();
         // if (token) {
-          setTimeout(() => {
-            setUser({
-              id: '1',
-              firstName: 'John', 
-              email: 'john@example.com'
-            });
-          }, 3000);
+        //   setTimeout(() => {
+        //     setUser({
+        //       id: '1',
+        //       firstName: 'John', 
+        //       email: 'john@example.com'
+        //     });
+        //   }, 3000);
         // }
       } catch (e) {
         // await removeTokenSecurely();
@@ -54,7 +73,7 @@ export default function Navigator() {
     };
 
     prepare();
-  }, []);
+  }, [fadeAnim]);
 
   // Cleanup when component unmounts
   useEffect(()=>{
@@ -63,35 +82,29 @@ export default function Navigator() {
     }
   }, []);
 
-  // Hide splash screen when fonts are loaded and app is ready
+  // Remove the expo splash screen hide logic since we handle it in useEffect
   const onLayoutRootView = useCallback(async () => {
-    if (appIsReady) {
-      await SplashScreen.hideAsync();
-    }
-  }, [ appIsReady]);
+    // App is ready, no need to hide expo splash here
+  }, []);
 
-  // Show loading screen while fonts and app are initializing
-  if (!appIsReady) {
-    return <View style={{ flex: 1, backgroundColor: theme.white }} />;
+  // Show custom splash screen for 5 seconds with fade animation
+  if (!appIsReady || showCustomSplash) {
+    return (
+      <>
+        <StatusBar barStyle={'light-content'} backgroundColor="transparent" translucent />
+        <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+          <CustomSplashScreen />
+        </Animated.View>
+      </>
+    );
   }
 
   return (
     <NavigationContainer onReady={onLayoutRootView}>
-      {
-        user ? (
-          <>
-            <StatusBar barStyle={'dark-content'} backgroundColor="transparent" translucent />
-            <View style={{ flex: 1, backgroundColor: theme.white }}>
-              <MainTabs />
-            </View>
-          </>
-        ) : (
-          <>
-            <StatusBar barStyle={'light-content'} backgroundColor="transparent" translucent />
-            <AuthStack />
-          </>
-        )
-      }
+      <>
+        <StatusBar barStyle={'light-content'} backgroundColor="transparent" translucent />
+        <AuthStack />
+      </>
     </NavigationContainer>
   );
 }

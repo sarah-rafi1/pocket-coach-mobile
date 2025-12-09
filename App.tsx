@@ -1,3 +1,4 @@
+import './global.css';
 import Navigator from './src';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/configs';

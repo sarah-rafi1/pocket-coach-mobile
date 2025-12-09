@@ -21,11 +21,17 @@ const letter_spacing = {
 };
 
 const fonts = {
-  // ...
+  SharpSans: 'Sharp Sans',
+  SharpSansLight: 'Sharp Sans Light',
+  SharpSansRegular: 'Sharp Sans Regular',
+  SharpSansMedium: 'Sharp Sans Medium',
+  SharpSansSemiBold: 'Sharp Sans SemiBold',
+  SharpSansBold: 'Sharp Sans Bold',
+  default: 'Sharp Sans',
 };
 
 export {
   font_size,
   letter_spacing,
-  // fonts,
+  fonts,
 }

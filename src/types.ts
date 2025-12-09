@@ -15,5 +15,10 @@ export type AppRoutes = {
 
   // Home Stack
   'home-screen': any;
+  'login-screen': any;
+  'sign-up-screen': any;
+  'forgot-password-screen': any;
+  'email-verification-screen': { email?: string };
+  'reset-password-screen': any;
 
 };
