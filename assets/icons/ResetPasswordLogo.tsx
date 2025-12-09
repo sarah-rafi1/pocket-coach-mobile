@@ -20,8 +20,8 @@ const ResetPasswordLogo = ({ color = "white" }: LockPasswordProps) => {
 <Path d="M61.2617 22.075L67.4531 27.4925L77.9011 15.4966" stroke="white" stroke-width="2.47656" stroke-linecap="round"/>
 <Defs>
 <LinearGradient id="paint0_linear_120_47061" x1="50.9297" y1="21.7426" x2="88.852" y2="21.7426" gradientUnits="userSpaceOnUse">
-<Stop stop-color="#00C6FF"/>
-<Stop offset="1" stop-color="#0072FF"/>
+<Stop stopColor="#00C6FF"/>
+<Stop offset="1" stopColor="#0072FF"/>
 </LinearGradient>
 </Defs>
 </Svg>

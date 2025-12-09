@@ -7,6 +7,7 @@ import { fonts } from '../../constants/typography';
 import ResetPasswordLogo from '../../../assets/icons/ResetPasswordLogo';
 import LockPassword from '../../../assets/icons/LockPassword';
 import EyeIcon from '../../../assets/icons/EyeIcon';
+import CloseEyeIcon from '../../../assets/icons/CloseEyeIcon';
 import { AppRoutes } from '../../types';
 
 type ResetPasswordNavigationProp = StackNavigationProp<AppRoutes, 'reset-password-screen'>;
@@ -147,7 +148,7 @@ export function ResetPasswordScreen() {
               onBlur={handleNewPasswordBlur}
               isPassword={true}
               leftIcon={<LockPassword color={newPasswordError ? '#FF5050' : 'white'} />}
-              rightIcon={<EyeIcon />}
+              rightIcon={isNewPasswordVisible ? <CloseEyeIcon /> : <EyeIcon />}
               onRightIconPress={() => setIsNewPasswordVisible(!isNewPasswordVisible)}
               error={newPasswordError}
               hasError={!!newPasswordError}
@@ -166,7 +167,7 @@ export function ResetPasswordScreen() {
               onBlur={handleConfirmPasswordBlur}
               isPassword={true}
               leftIcon={<LockPassword color={confirmPasswordError ? '#FF5050' : 'white'} />}
-              rightIcon={<EyeIcon />}
+              rightIcon={isConfirmPasswordVisible ? <CloseEyeIcon /> : <EyeIcon />}
               onRightIconPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
               error={confirmPasswordError}
               hasError={!!confirmPasswordError}

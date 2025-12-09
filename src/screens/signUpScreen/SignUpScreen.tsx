@@ -9,6 +9,7 @@ import HomeLogo from '../../../assets/icons/HomeLogo';
 import Letter from '../../../assets/icons/Letter';
 import LockPassword from '../../../assets/icons/LockPassword';
 import EyeIcon from '../../../assets/icons/EyeIcon';
+import CloseEyeIcon from '../../../assets/icons/CloseEyeIcon';
 import FacebookLogo from '../../../assets/icons/FacebookLogo';
 import GoogleIcon from '../../../assets/icons/GoogleIcon';
 import AppleIcon from '../../../assets/icons/AppleIcon';
@@ -23,6 +24,8 @@ export function SignUpScreen() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -104,8 +107,8 @@ export function SignUpScreen() {
     }
 
     if (!hasError) {
-      // Handle sign up logic here
-      console.log('Sign up successful');
+      // Navigate to profile completion screen
+      navigation.navigate('profile-completion-screen');
     }
   };
 
@@ -175,7 +178,8 @@ export function SignUpScreen() {
               onBlur={handlePasswordBlur}
               isPassword={true}
               leftIcon={<LockPassword color={passwordError ? '#FF5050' : 'white'} />}
-              rightIcon={<EyeIcon />}
+              rightIcon={isPasswordVisible ? <CloseEyeIcon /> : <EyeIcon />}
+              onRightIconPress={() => setIsPasswordVisible(!isPasswordVisible)}
               error={passwordError}
               hasError={!!passwordError}
             />
@@ -193,7 +197,8 @@ export function SignUpScreen() {
               onBlur={handleConfirmPasswordBlur}
               isPassword={true}
               leftIcon={<LockPassword color={confirmPasswordError ? '#FF5050' : 'white'} />}
-              rightIcon={<EyeIcon />}
+              rightIcon={isConfirmPasswordVisible ? <CloseEyeIcon /> : <EyeIcon />}
+              onRightIconPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
               error={confirmPasswordError}
               hasError={!!confirmPasswordError}
             />

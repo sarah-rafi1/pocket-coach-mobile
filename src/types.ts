@@ -20,5 +20,7 @@ export type AppRoutes = {
   'forgot-password-screen': any;
   'email-verification-screen': { email?: string };
   'reset-password-screen': any;
+  'profile-completion-screen': any;
+  'profile-success-screen': any;
 
 };

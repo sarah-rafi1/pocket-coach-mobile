@@ -1,0 +1,11 @@
+{
+  "region": "us-east-1",
+  "userPoolId": "us-east-1_jf6d8aR5S",
+  "clientId": "4th6poqslps5s688uo1a4ch4rn",
+  "cognitoDomain": "us-east-1yr6tbhf5s.auth.us-east-1.amazoncognito.com",
+  "redirectSignIn": "pocketcoach://callback",
+  "redirectSignOut": "pocketcoach://login",
+  "scopes": ["openid", "email", "profile"],
+  "responseType": "code",
+  "mockMode": false
+}

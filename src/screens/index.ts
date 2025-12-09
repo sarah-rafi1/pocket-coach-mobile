@@ -5,3 +5,5 @@ export * from "./signUpScreen";
 export * from "./forgotPasswordScreen";
 export * from "./emailVerificationScreen";
 export * from "./resetPasswordScreen";
+export * from "./profileCompletionScreen";
+export * from "./profileSuccessScreen";

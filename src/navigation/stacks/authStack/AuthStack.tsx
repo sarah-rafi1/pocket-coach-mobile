@@ -1,5 +1,5 @@
 import { createStackNavigator } from '@react-navigation/stack';
-import { SplashScreen, HomeScreen, LoginScreen, SignUpScreen, ForgotPasswordScreen, EmailVerificationScreen, ResetPasswordScreen } from '../../../screens';
+import { SplashScreen, HomeScreen, LoginScreen, SignUpScreen, ForgotPasswordScreen, EmailVerificationScreen, ResetPasswordScreen, ProfileCompletionScreen, ProfileSuccessScreen } from '../../../screens';
 import { AppRoutes } from '../../../types';
 
 const Stack = createStackNavigator<AppRoutes>();
@@ -52,6 +52,20 @@ export function AuthStack() {
       <Stack.Screen
         name="reset-password-screen"
         component={ResetPasswordScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="profile-completion-screen"
+        component={ProfileCompletionScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="profile-success-screen"
+        component={ProfileSuccessScreen}
         options={{
           headerShown: false,
         }}
