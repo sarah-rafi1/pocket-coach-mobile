@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';
 import './gesture-handler';
 import { registerRootComponent } from 'expo';
 

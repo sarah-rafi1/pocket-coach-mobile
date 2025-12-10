@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ImageBackground, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { ReusableButton, ReusableInput } from '../../components';
 import { fonts } from '../../constants/typography';
 import { AppRoutes } from '../../types';
+import { signUpWithGoogle, signUpWithFacebook, signUpWithApple, signUp } from '../../services/authService';
+import useAuthStore from '../../store/useAuthStore';
 import HomeLogo from '../../../assets/icons/HomeLogo';
 import Letter from '../../../assets/icons/Letter';
 import LockPassword from '../../../assets/icons/LockPassword';
@@ -18,6 +21,7 @@ type SignUpScreenNavigationProp = StackNavigationProp<AppRoutes, 'sign-up-screen
 
 export function SignUpScreen() {
   const navigation = useNavigation<SignUpScreenNavigationProp>();
+  const { setUser } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,6 +30,8 @@ export function SignUpScreen() {
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -79,7 +85,7 @@ export function SignUpScreen() {
     }
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     let hasError = false;
 
     if (!email) {
@@ -107,13 +113,78 @@ export function SignUpScreen() {
     }
 
     if (!hasError) {
-      // Navigate to profile completion screen
-      navigation.navigate('profile-completion-screen');
+      setLoading(true);
+      try {
+        const result = await signUp(email, password);
+        
+        if (result.emailSent) {
+          // Navigate to email verification screen
+          navigation.navigate('email-verification-screen', { email });
+        } else {
+          // User is automatically confirmed, proceed to profile completion
+          navigation.navigate('profile-completion-screen');
+        }
+      } catch (error: any) {
+        Alert.alert("Sign Up Failed", error.message || "An error occurred");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   const handleLoginPress = () => {
     navigation.navigate('login-screen');
+  };
+
+  const handleGoogleSignUp = async () => {
+    setSocialLoading("google");
+    try {
+      const tokens = await signUpWithGoogle();
+      setUser({ 
+        id: "google_user_123", 
+        email: "test@gmail.com", 
+        firstName: "Google Test User" 
+      });
+      Alert.alert("Success", "Signed up with Google successfully!");
+    } catch (error: any) {
+      Alert.alert("Google Sign Up Failed", error.message || "An error occurred");
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const handleFacebookSignUp = async () => {
+    setSocialLoading("facebook");
+    try {
+      const tokens = await signUpWithFacebook();
+      setUser({ 
+        id: "facebook_user_123", 
+        email: "test@facebook.com", 
+        firstName: "Facebook Test User" 
+      });
+      Alert.alert("Success", "Signed up with Facebook successfully!");
+    } catch (error: any) {
+      Alert.alert("Facebook Sign Up Failed", error.message || "An error occurred");
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const handleAppleSignUp = async () => {
+    setSocialLoading("apple");
+    try {
+      const tokens = await signUpWithApple();
+      setUser({ 
+        id: "apple_user_123", 
+        email: "test@icloud.com", 
+        firstName: "Apple Test User" 
+      });
+      Alert.alert("Success", "Signed up with Apple successfully!");
+    } catch (error: any) {
+      Alert.alert("Apple Sign Up Failed", error.message || "An error occurred");
+    } finally {
+      setSocialLoading(null);
+    }
   };
 
   return (
@@ -206,11 +277,12 @@ export function SignUpScreen() {
 
           {/* Sign Up Button */}
           <ReusableButton
-            title="Sign Up"
+            title={loading ? "Creating Account..." : "Sign Up"}
             variant="gradient"
             fullWidth={true}
             className="mb-6"
             onPress={handleSignUp}
+            disabled={loading || socialLoading !== null}
           />
 
           {/* Social Sign Up */}
@@ -220,16 +292,46 @@ export function SignUpScreen() {
             </Text>
             
             <View className="flex-row justify-center space-x-4">
-              <TouchableOpacity className="py-3 px-2 mr-2">
-                <AppleIcon />
+              {/* Apple Sign Up - iOS only */}
+              {Platform.OS === "ios" && (
+                <TouchableOpacity 
+                  className="py-3 px-2 mr-2" 
+                  onPress={handleAppleSignUp}
+                  disabled={socialLoading !== null}
+                  style={{ opacity: socialLoading === "apple" ? 0.5 : 1 }}
+                >
+                  {socialLoading === "apple" ? (
+                    <ActivityIndicator color="#000" size="small" />
+                  ) : (
+                    <AppleIcon />
+                  )}
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity 
+                className="py-3 px-2 mr-2" 
+                onPress={handleGoogleSignUp}
+                disabled={socialLoading !== null}
+                style={{ opacity: socialLoading === "google" ? 0.5 : 1 }}
+              >
+                {socialLoading === "google" ? (
+                  <ActivityIndicator color="#4285F4" size="small" />
+                ) : (
+                  <GoogleIcon />
+                )}
               </TouchableOpacity>
               
-              <TouchableOpacity className="py-3 px-2 mr-2">
-                <GoogleIcon />
-              </TouchableOpacity>
-              
-              <TouchableOpacity className="py-3 px-2">
-                <FacebookLogo />
+              <TouchableOpacity 
+                className="py-3 px-2" 
+                onPress={handleFacebookSignUp}
+                disabled={socialLoading !== null}
+                style={{ opacity: socialLoading === "facebook" ? 0.5 : 1 }}
+              >
+                {socialLoading === "facebook" ? (
+                  <ActivityIndicator color="#1877F2" size="small" />
+                ) : (
+                  <FacebookLogo />
+                )}
               </TouchableOpacity>
             </View>
           </View>

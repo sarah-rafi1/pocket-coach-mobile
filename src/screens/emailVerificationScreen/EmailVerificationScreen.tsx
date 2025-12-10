@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, ImageBackground, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ReusableButton, GradientText } from '../../components';
 import { fonts } from '../../constants/typography';
+import { confirmSignUp, resendConfirmationCode } from '../../services/authService';
 import EmailVerificationLogo from '../../../assets/icons/EmailVerificationLogo';
 import { AppRoutes } from '../../types';
 
@@ -19,8 +20,9 @@ interface EmailVerificationScreenProps {
 
 export function EmailVerificationScreen({ route }: EmailVerificationScreenProps) {
   const navigation = useNavigation<EmailVerificationNavigationProp>();
-  const [otp, setOtp] = useState(['', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const email = route?.params?.email || 'ahmadalfi23@gmail.com';
 
@@ -31,7 +33,7 @@ export function EmailVerificationScreen({ route }: EmailVerificationScreenProps)
       setOtp(newOtp);
 
       // Move to next input if value is entered
-      if (value && index < 4) {
+      if (value && index < 5) {
         inputRefs.current[index + 1]?.focus();
       }
     }
@@ -55,20 +57,37 @@ export function EmailVerificationScreen({ route }: EmailVerificationScreenProps)
     navigation.goBack();
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const otpCode = otp.join('');
-    if (otpCode.length === 5) {
-      // Handle verification logic here
-      console.log('OTP:', otpCode);
-      // Navigate to reset password screen
-      navigation.navigate('reset-password-screen');
+    if (otpCode.length === 6) {
+      setLoading(true);
+      try {
+        await confirmSignUp(email, otpCode);
+        Alert.alert("Success", "Email verified successfully!", [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate('profile-completion-screen')
+          }
+        ]);
+      } catch (error: any) {
+        Alert.alert("Verification Failed", error.message || "Invalid verification code");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      Alert.alert("Error", "Please enter the complete verification code");
     }
   };
 
-  const handleResendCode = () => {
-    // Handle resend logic here
-    setOtp(['', '', '', '', '']);
-    inputRefs.current[0]?.focus();
+  const handleResendCode = async () => {
+    try {
+      await resendConfirmationCode(email);
+      Alert.alert("Success", "Verification code sent to your email");
+      setOtp(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to resend verification code");
+    }
   };
 
   return (
@@ -159,10 +178,11 @@ export function EmailVerificationScreen({ route }: EmailVerificationScreenProps)
 
             {/* Verify Button */}
             <ReusableButton
-              title="Verify"
+              title={loading ? "Verifying..." : "Verify"}
               variant="gradient"
               fullWidth={true}
               onPress={handleVerify}
+              disabled={loading}
             />
           </View>
         </ScrollView>

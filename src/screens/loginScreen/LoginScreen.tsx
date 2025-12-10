@@ -70,8 +70,17 @@ export function LoginScreen() {
 
     setLoading(true);
     try {
-      await signIn(email, password);
-      // TODO: Update user store with user data once traditional auth is implemented
+      const tokens = await signIn(email, password);
+      
+      // Extract user info from tokens and set user
+      // For now, use email as user identifier
+      setUser({ 
+        id: email, // Use email as temporary ID
+        email: email, 
+        firstName: email.split('@')[0] // Use part before @ as name
+      });
+      
+      Alert.alert("Success", "Signed in successfully!");
     } catch (error: any) {
       Alert.alert("Login Failed", error.message || "An error occurred");
     } finally {

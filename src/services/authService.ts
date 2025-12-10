@@ -3,7 +3,16 @@ import * as WebBrowser from "expo-web-browser";
 import * as Crypto from "expo-crypto";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { makeRedirectUri } from "expo-auth-session";
+import {
+  CognitoIdentityProviderClient,
+  InitiateAuthCommand,
+  SignUpCommand,
+  ConfirmSignUpCommand,
+  ResendConfirmationCodeCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
 import config from "../config.json";
+
+// Note: crypto polyfill is handled by react-native-get-random-values in index.ts
 
 export interface AuthTokens {
   id_token?: string;
@@ -17,6 +26,11 @@ export interface AuthError extends Error {
   code?: string;
   details?: string;
 }
+
+// Initialize Cognito client
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: config.region,
+});
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -55,7 +69,7 @@ const createMockTokens = async (provider: string): Promise<AuthTokens> => {
   return mockTokens;
 };
 
-export const signInWithGoogle = async (): Promise<AuthTokens> => {
+export const signInWithGoogle = async (isSignUp: boolean = false): Promise<AuthTokens> => {
   // Check if in mock mode for local testing
   if (config.mockMode) {
     console.log("🚀 Mock Google Sign In - simulating successful authentication");
@@ -72,29 +86,49 @@ export const signInWithGoogle = async (): Promise<AuthTokens> => {
       path: 'callback'
     });
     
+    console.log("🔗 Redirect URI:", redirectUri);
+    
+    // Always go directly to Google (not Cognito UI)
     const cognitoAuthUrl = `https://${config.cognitoDomain}/oauth2/authorize`;
+    
     const params = new URLSearchParams({
       identity_provider: "Google",
       redirect_uri: redirectUri,
       response_type: "code",
       client_id: config.clientId,
-      scope: "openid email profile",
+      scope: "openid email phone",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
     });
     
+    // Google will handle both new and existing users automatically
+    
     const authUrl = `${cognitoAuthUrl}?${params.toString()}`;
+    console.log("🚀 Opening auth URL:", authUrl);
+    
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+    
+    console.log("📱 WebBrowser result:", result);
     
     if (result.type === "success" && result.url) {
       const url = new URL(result.url);
       const code = url.searchParams.get("code");
+      const error = url.searchParams.get("error");
+      
+      console.log("✅ Success URL:", result.url);
+      console.log("🔑 Authorization code:", code);
+      console.log("❌ Error in URL:", error);
+      
+      if (error) {
+        throw new Error(`OAuth error: ${error}`);
+      }
       
       if (code) {
         return await handleOAuthCallback(code);
       }
     }
     
+    console.log("❌ Authentication failed - result type:", result.type);
     throw new Error("Authentication was cancelled or failed");
   } catch (error: any) {
     console.error("Error with Google sign in:", error);
@@ -104,7 +138,11 @@ export const signInWithGoogle = async (): Promise<AuthTokens> => {
   }
 };
 
-export const signInWithFacebook = async (): Promise<AuthTokens> => {
+export const signUpWithGoogle = async (): Promise<AuthTokens> => {
+  return signInWithGoogle(true);
+};
+
+export const signInWithFacebook = async (isSignUp: boolean = false): Promise<AuthTokens> => {
   // Check if in mock mode for local testing
   if (config.mockMode) {
     console.log("🚀 Mock Facebook Sign In - simulating successful authentication");
@@ -121,16 +159,25 @@ export const signInWithFacebook = async (): Promise<AuthTokens> => {
       path: 'callback'
     });
     
-    const cognitoAuthUrl = `https://${config.cognitoDomain}/oauth2/authorize`;
+    // Use different URLs for sign-in vs sign-up
+    const cognitoAuthUrl = isSignUp 
+      ? `https://${config.cognitoDomain}/signup`
+      : `https://${config.cognitoDomain}/oauth2/authorize`;
+    
     const params = new URLSearchParams({
-      identity_provider: "Facebook",
       redirect_uri: redirectUri,
       response_type: "code",
       client_id: config.clientId,
-      scope: "openid email profile",
+      scope: "openid email phone",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
     });
+    
+    // For sign-up, we want to show the Cognito UI with Facebook option
+    // For sign-in, we can go directly to Facebook or show Cognito UI
+    if (!isSignUp) {
+      // params.set("identity_provider", "Facebook"); // Uncomment for direct Facebook
+    }
     
     const authUrl = `${cognitoAuthUrl}?${params.toString()}`;
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
@@ -153,7 +200,11 @@ export const signInWithFacebook = async (): Promise<AuthTokens> => {
   }
 };
 
-export const signInWithApple = async (): Promise<AuthTokens> => {
+export const signUpWithFacebook = async (): Promise<AuthTokens> => {
+  return signInWithFacebook(true);
+};
+
+export const signInWithApple = async (isSignUp: boolean = false): Promise<AuthTokens> => {
   // Check if in mock mode for local testing
   if (config.mockMode) {
     console.log("🚀 Mock Apple Sign In - simulating successful authentication");
@@ -183,16 +234,25 @@ export const signInWithApple = async (): Promise<AuthTokens> => {
       path: 'callback'
     });
     
-    const cognitoAuthUrl = `https://${config.cognitoDomain}/oauth2/authorize`;
+    // Use different URLs for sign-in vs sign-up
+    const cognitoAuthUrl = isSignUp 
+      ? `https://${config.cognitoDomain}/signup`
+      : `https://${config.cognitoDomain}/oauth2/authorize`;
+    
     const params = new URLSearchParams({
-      identity_provider: "SignInWithApple",
       redirect_uri: redirectUri,
       response_type: "code",
       client_id: config.clientId,
-      scope: "openid email profile",
+      scope: "openid email phone",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
     });
+    
+    // For sign-up, we want to show the Cognito UI with Apple option
+    // For sign-in, we can go directly to Apple or show Cognito UI
+    if (!isSignUp) {
+      // params.set("identity_provider", "SignInWithApple"); // Uncomment for direct Apple
+    }
     
     const authUrl = `${cognitoAuthUrl}?${params.toString()}`;
     const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
@@ -216,6 +276,10 @@ export const signInWithApple = async (): Promise<AuthTokens> => {
     authError.code = error.code;
     throw authError;
   }
+};
+
+export const signUpWithApple = async (): Promise<AuthTokens> => {
+  return signInWithApple(true);
 };
 
 export const handleOAuthCallback = async (code: string): Promise<AuthTokens> => {
@@ -264,22 +328,137 @@ export const handleOAuthCallback = async (code: string): Promise<AuthTokens> => 
   }
 };
 
-export const signIn = async (email: string, password: string): Promise<void> => {
-  // TODO: Implement traditional email/password sign in with AWS Cognito
-  // This would use AWS SDK's InitiateAuthCommand with USER_PASSWORD_AUTH flow
-  throw new Error("Traditional sign in not yet implemented - please use social sign in");
+export const signIn = async (email: string, password: string): Promise<AuthTokens> => {
+  try {
+    const command = new InitiateAuthCommand({
+      AuthFlow: "USER_PASSWORD_AUTH",
+      ClientId: config.clientId,
+      AuthParameters: {
+        USERNAME: email,
+        PASSWORD: password,
+      },
+    });
+
+    const response = await cognitoClient.send(command);
+
+    if (response.AuthenticationResult) {
+      const tokens: AuthTokens = {
+        access_token: response.AuthenticationResult.AccessToken,
+        id_token: response.AuthenticationResult.IdToken,
+        refresh_token: response.AuthenticationResult.RefreshToken,
+        token_type: "Bearer",
+        expires_in: response.AuthenticationResult.ExpiresIn,
+      };
+
+      // Store tokens
+      await AsyncStorage.setItem("idToken", tokens.id_token || "");
+      await AsyncStorage.setItem("accessToken", tokens.access_token || "");
+      await AsyncStorage.setItem("refreshToken", tokens.refresh_token || "");
+
+      return tokens;
+    } else {
+      throw new Error("Authentication failed - no tokens received");
+    }
+  } catch (error: any) {
+    console.error("Error signing in:", error);
+    
+    // Handle specific Cognito errors
+    if (error.name === "NotAuthorizedException") {
+      throw new Error("Incorrect username or password");
+    } else if (error.name === "UserNotConfirmedException") {
+      throw new Error("Please verify your email address");
+    } else if (error.name === "UserNotFoundException") {
+      throw new Error("No account found with this email");
+    }
+    
+    throw new Error(error.message || "Sign in failed");
+  }
 };
 
-export const signUp = async (email: string, password: string): Promise<void> => {
-  // TODO: Implement traditional email/password sign up with AWS Cognito
-  // This would use AWS SDK's SignUpCommand
-  throw new Error("Traditional sign up not yet implemented - please use social sign in");
+export const signUp = async (email: string, password: string): Promise<{ userSub: string; emailSent: boolean }> => {
+  try {
+    const command = new SignUpCommand({
+      ClientId: config.clientId,
+      Username: email,
+      Password: password,
+      UserAttributes: [
+        {
+          Name: "email",
+          Value: email,
+        },
+      ],
+    });
+
+    const response = await cognitoClient.send(command);
+    
+    return {
+      userSub: response.UserSub || "",
+      emailSent: !response.UserConfirmed, // If not confirmed, email verification was sent
+    };
+  } catch (error: any) {
+    console.error("Error signing up:", error);
+    
+    // Handle specific Cognito errors
+    if (error.name === "UsernameExistsException") {
+      throw new Error("An account with this email already exists");
+    } else if (error.name === "InvalidPasswordException") {
+      throw new Error("Password does not meet requirements");
+    } else if (error.name === "InvalidParameterException") {
+      throw new Error("Invalid email format");
+    }
+    
+    throw new Error(error.message || "Sign up failed");
+  }
 };
 
 export const confirmSignUp = async (username: string, code: string): Promise<boolean> => {
-  // TODO: Implement email confirmation with AWS Cognito
-  // This would use AWS SDK's ConfirmSignUpCommand
-  throw new Error("Email confirmation not yet implemented");
+  try {
+    const command = new ConfirmSignUpCommand({
+      ClientId: config.clientId,
+      Username: username,
+      ConfirmationCode: code,
+    });
+
+    await cognitoClient.send(command);
+    return true;
+  } catch (error: any) {
+    console.error("Error confirming sign up:", error);
+    
+    // Handle specific Cognito errors
+    if (error.name === "CodeMismatchException") {
+      throw new Error("Invalid confirmation code");
+    } else if (error.name === "ExpiredCodeException") {
+      throw new Error("Confirmation code has expired");
+    } else if (error.name === "UserNotFoundException") {
+      throw new Error("User not found");
+    }
+    
+    throw new Error(error.message || "Email confirmation failed");
+  }
+};
+
+export const resendConfirmationCode = async (username: string): Promise<void> => {
+  try {
+    const command = new ResendConfirmationCodeCommand({
+      ClientId: config.clientId,
+      Username: username,
+    });
+
+    await cognitoClient.send(command);
+  } catch (error: any) {
+    console.error("Error resending confirmation code:", error);
+    
+    // Handle specific Cognito errors
+    if (error.name === "UserNotFoundException") {
+      throw new Error("User not found");
+    } else if (error.name === "InvalidParameterException") {
+      throw new Error("User is already confirmed");
+    } else if (error.name === "LimitExceededException") {
+      throw new Error("Too many requests. Please wait before requesting again");
+    }
+    
+    throw new Error(error.message || "Failed to resend confirmation code");
+  }
 };
 
 export const signOut = async (): Promise<void> => {
