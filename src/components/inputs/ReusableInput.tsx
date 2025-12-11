@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, TextInputProps, ViewStyle, Platform } from 'react-native';
-import { fonts } from '../constants/typography';
+import { fonts } from '../../constants/typography';
 
 interface ReusableInputProps extends TextInputProps {
   leftIcon?: React.ReactNode;

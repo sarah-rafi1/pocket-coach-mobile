@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, Modal, Dimensions } from 'react-native';
-import { ReusableButton } from './ReusableButton';
-import { fonts } from '../constants/typography';
-import TickIcon from '../../assets/icons/TickIcon';
+import { ReusableButton } from '../buttons';
+import { fonts } from '../../constants/typography';
+import TickIcon from '../../../assets/icons/TickIcon';
 
 const { width } = Dimensions.get('window');
 

@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, TouchableOpacity, TouchableOpacityProps, ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
-import { fonts } from '../constants/typography';
+import { fonts } from '../../constants/typography';
 
 export type ButtonVariant = 'gradient' | 'outlined' | 'text';
 
