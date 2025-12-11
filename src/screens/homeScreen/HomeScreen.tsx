@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ReusableButton, GradientText } from '../../components';
 import { fonts } from '../../constants/typography';
-import HomeLogo from '../../../assets/icons/HomeLogo';
+import { HomeLogo } from '../../../assets/icons';
 import { AppRoutes } from '../../types';
 
 type HomeScreenNavigationProp = StackNavigationProp<AppRoutes, 'home-screen'>;
@@ -14,11 +14,11 @@ export function HomeScreen() {
   const navigation = useNavigation<HomeScreenNavigationProp>();
 
   const handleLoginPress = () => {
-    navigation.navigate('login-screen');
+    navigation.navigate('auth-screen', { mode: 'login' });
   };
 
   const handleSignUpPress = () => {
-    navigation.navigate('sign-up-screen');
+    navigation.navigate('auth-screen', { mode: 'signup' });
   };
 
   return (

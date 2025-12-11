@@ -25,8 +25,8 @@ export function validateName(firstName: string, lastName: string): boolean {
 export function validatePassword(password: string): string[] {
   const errors: string[] = [];
 
-  if (password.length < 8) {
-    errors.push("Password must be at least 8 characters long.");
+  if (password.length < 6) {
+    errors.push("Password must be at least 6 characters long.");
   }
 
   if (!/[0-9]/.test(password)) {
@@ -46,6 +46,17 @@ export function validatePassword(password: string): string[] {
   }
 
   return errors;
+}
+
+// Helper function to check if password is valid (returns boolean)
+export function isPasswordValid(password: string): boolean {
+  return validatePassword(password).length === 0;
+}
+
+// Helper function to get formatted password error message
+export function getPasswordErrorMessage(password: string): string {
+  const errors = validatePassword(password);
+  return errors.length > 0 ? errors[0] : '';
 }
 
 export function validateUsername(username: string): boolean {

@@ -2,9 +2,8 @@ import './global.css';
 import Navigator from './src';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './src/configs';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-const queryClient = new QueryClient();
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './src/lib/queryClient';
 
 export default function App() {
   return (

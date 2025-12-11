@@ -15,11 +15,8 @@ export type AppRoutes = {
 
   // Home Stack
   'home-screen': any;
-  'login-screen': any;
-  'sign-up-screen': any;
-  'forgot-password-screen': any;
-  'email-verification-screen': { email?: string };
-  'reset-password-screen': any;
+  'auth-screen': { mode?: 'login' | 'signup' };
+  'password-recovery-screen': { mode?: 'forgot-password' | 'email-verification' | 'reset-password'; email?: string; fromLogin?: boolean; password?: string };
   'profile-completion-screen': any;
   'profile-success-screen': any;
 

@@ -1,5 +1,5 @@
 import { createStackNavigator } from '@react-navigation/stack';
-import { SplashScreen, HomeScreen, LoginScreen, SignUpScreen, ForgotPasswordScreen, EmailVerificationScreen, ResetPasswordScreen, ProfileCompletionScreen, ProfileSuccessScreen } from '../../../screens';
+import { SplashScreen, HomeScreen, AuthScreen, PasswordRecoveryScreen, ProfileCompletionScreen, ProfileSuccessScreen } from '../../../screens';
 import { AppRoutes } from '../../../types';
 
 const Stack = createStackNavigator<AppRoutes>();
@@ -22,41 +22,6 @@ export function AuthStack() {
         }}
       />
       <Stack.Screen
-        name="login-screen"
-        component={LoginScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="sign-up-screen"
-        component={SignUpScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="forgot-password-screen"
-        component={ForgotPasswordScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="email-verification-screen"
-        component={EmailVerificationScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="reset-password-screen"
-        component={ResetPasswordScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
         name="profile-completion-screen"
         component={ProfileCompletionScreen}
         options={{
@@ -66,6 +31,20 @@ export function AuthStack() {
       <Stack.Screen
         name="profile-success-screen"
         component={ProfileSuccessScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="auth-screen"
+        component={AuthScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="password-recovery-screen"
+        component={PasswordRecoveryScreen}
         options={{
           headerShown: false,
         }}

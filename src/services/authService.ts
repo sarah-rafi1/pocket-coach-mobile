@@ -11,6 +11,7 @@ import {
   ResendConfirmationCodeCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import config from "../config.json";
+import { storeCognitoTokens, retrieveCognitoTokens, removeCognitoTokens, isTokenValid, CognitoTokens } from "../utils/AsyncStorageApis";
 
 // Note: crypto polyfill is handled by react-native-get-random-values in index.ts
 
@@ -61,10 +62,8 @@ const createMockTokens = async (provider: string): Promise<AuthTokens> => {
     expires_in: 3600
   };
 
-  // Store mock tokens
-  await AsyncStorage.setItem("idToken", mockTokens.id_token || "");
-  await AsyncStorage.setItem("accessToken", mockTokens.access_token || "");
-  await AsyncStorage.setItem("refreshToken", mockTokens.refresh_token || "");
+  // Store tokens using new Cognito token storage
+  await storeCognitoTokens(mockTokens);
 
   return mockTokens;
 };
@@ -339,9 +338,11 @@ export const signIn = async (email: string, password: string): Promise<AuthToken
       },
     });
 
+    console.log('🔐 [COGNITO AUTH] => InitiateAuthCommand sent');
     const response = await cognitoClient.send(command);
 
     if (response.AuthenticationResult) {
+      console.log('✅ [COGNITO SUCCESS] => Authentication successful');
       const tokens: AuthTokens = {
         access_token: response.AuthenticationResult.AccessToken,
         id_token: response.AuthenticationResult.IdToken,
@@ -350,10 +351,9 @@ export const signIn = async (email: string, password: string): Promise<AuthToken
         expires_in: response.AuthenticationResult.ExpiresIn,
       };
 
-      // Store tokens
-      await AsyncStorage.setItem("idToken", tokens.id_token || "");
-      await AsyncStorage.setItem("accessToken", tokens.access_token || "");
-      await AsyncStorage.setItem("refreshToken", tokens.refresh_token || "");
+      console.log('💾 [STORING TOKENS] => About to store Cognito tokens...');
+      // Store tokens using new Cognito token storage
+      await storeCognitoTokens(tokens);
 
       return tokens;
     } else {
@@ -375,7 +375,7 @@ export const signIn = async (email: string, password: string): Promise<AuthToken
   }
 };
 
-export const signUp = async (email: string, password: string): Promise<{ userSub: string; emailSent: boolean }> => {
+export const signUp = async (email: string, password: string): Promise<{ userSub: string; emailSent: boolean; tokens?: AuthTokens }> => {
   try {
     const command = new SignUpCommand({
       ClientId: config.clientId,
@@ -389,11 +389,41 @@ export const signUp = async (email: string, password: string): Promise<{ userSub
       ],
     });
 
+    console.log('🔐 [COGNITO SIGNUP] => SignUpCommand sent');
     const response = await cognitoClient.send(command);
     
+    console.log('📧 [SIGNUP RESULT] =>', {
+      userSub: response.UserSub,
+      userConfirmed: response.UserConfirmed,
+      timestamp: new Date().toISOString()
+    });
+    
+    // If user is auto-confirmed (no email verification needed), sign them in immediately
+    if (response.UserConfirmed) {
+      console.log('✅ [AUTO-CONFIRMED] => User auto-confirmed, attempting auto sign-in...');
+      try {
+        const tokens = await signIn(email, password);
+        console.log('🎉 [AUTO SIGN-IN SUCCESS] => User signed in after signup');
+        return {
+          userSub: response.UserSub || "",
+          emailSent: false,
+          tokens: tokens,
+        };
+      } catch (signInError) {
+        console.warn("❌ [AUTO SIGN-IN FAILED] => Auto sign-in after signup failed:", signInError);
+        // Fall back to normal flow without tokens
+        return {
+          userSub: response.UserSub || "",
+          emailSent: false,
+        };
+      }
+    }
+    
+    // User needs email verification
+    console.log('📧 [EMAIL VERIFICATION] => User needs to verify email');
     return {
       userSub: response.UserSub || "",
-      emailSent: !response.UserConfirmed, // If not confirmed, email verification was sent
+      emailSent: true, // Email verification was sent
     };
   } catch (error: any) {
     console.error("Error signing up:", error);
@@ -411,7 +441,7 @@ export const signUp = async (email: string, password: string): Promise<{ userSub
   }
 };
 
-export const confirmSignUp = async (username: string, code: string): Promise<boolean> => {
+export const confirmSignUp = async (username: string, code: string, password?: string): Promise<{ confirmed: boolean; tokens?: AuthTokens }> => {
   try {
     const command = new ConfirmSignUpCommand({
       ClientId: config.clientId,
@@ -419,8 +449,33 @@ export const confirmSignUp = async (username: string, code: string): Promise<boo
       ConfirmationCode: code,
     });
 
+    console.log('🔐 [COGNITO CONFIRM] => ConfirmSignUpCommand sent');
     await cognitoClient.send(command);
-    return true;
+    console.log('✅ [EMAIL CONFIRMED] => Email verification successful');
+    
+    // If password is provided, automatically sign in the user after confirmation
+    if (password) {
+      console.log('🔑 [AUTO SIGN-IN] => Attempting auto sign-in after email confirmation...');
+      try {
+        const tokens = await signIn(username, password);
+        console.log('🎉 [AUTO SIGN-IN SUCCESS] => User signed in after email confirmation');
+        return {
+          confirmed: true,
+          tokens: tokens,
+        };
+      } catch (signInError) {
+        console.warn("❌ [AUTO SIGN-IN FAILED] => Auto sign-in after confirmation failed:", signInError);
+        // Confirmation was successful, but auto sign-in failed
+        return {
+          confirmed: true,
+        };
+      }
+    }
+    
+    console.log('📧 [CONFIRMATION ONLY] => Email confirmed, no auto sign-in requested');
+    return {
+      confirmed: true,
+    };
   } catch (error: any) {
     console.error("Error confirming sign up:", error);
     
@@ -581,4 +636,27 @@ export const getValidAccessToken = async (): Promise<string> => {
   }
   
   return accessToken;
+};
+
+// New Cognito token utility functions
+export const getCurrentCognitoTokens = async (): Promise<CognitoTokens | null> => {
+  return await retrieveCognitoTokens();
+};
+
+export const isCognitoAuthenticated = async (): Promise<boolean> => {
+  const tokens = await retrieveCognitoTokens();
+  return isTokenValid(tokens);
+};
+
+export const clearAllTokens = async (): Promise<void> => {
+  await removeCognitoTokens();
+  await AsyncStorage.multiRemove(['idToken', 'accessToken', 'refreshToken']);
+};
+
+export const getAccessTokenForApi = async (): Promise<string | null> => {
+  const tokens = await retrieveCognitoTokens();
+  if (tokens && isTokenValid(tokens)) {
+    return tokens.access_token || null;
+  }
+  return null;
 };
