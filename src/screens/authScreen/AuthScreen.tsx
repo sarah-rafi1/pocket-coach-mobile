@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ImageBackground, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -42,15 +43,38 @@ export function AuthScreen() {
   const navigation = useNavigation<AuthScreenNavigationProp>();
   const route = useRoute<AuthScreenRouteProp>();
   const { setUser } = useAuthStore();
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // Initialize mode based on route params
   const [isLogin, setIsLogin] = useState(true);
+  
+  // Keyboard state
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   
   useEffect(() => {
     if (route.params?.mode) {
       setIsLogin(route.params.mode === 'login');
     }
   }, [route.params?.mode]);
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setIsKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
   
   // Form fields
   const [email, setEmail] = useState('');
@@ -98,6 +122,13 @@ export function AuthScreen() {
     if (confirmPasswordError) {
       setConfirmPasswordError('');
     }
+  };
+
+  const handleConfirmPasswordFocus = () => {
+    // Scroll to bottom to ensure confirm password field is visible
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
   };
 
   const handleEmailBlur = () => {
@@ -148,12 +179,12 @@ export function AuthScreen() {
         firstName: email.split('@')[0] // Use part before @ as name
       });
 
-      // Check if user profile is complete
+      // Check if user profile is complete (with fallback for API unavailability)
       try {
         const userProfile = await userApi.getUserProfile(tokens.access_token || '');
         
         // Check if user has essential profile data
-        if (!userProfile.username || !userProfile.display_name || !userProfile.interest_slugs || userProfile.interest_slugs.length === 0) {
+        if (!userProfile || !userProfile.username || !userProfile.display_name || !userProfile.interest_slugs || userProfile.interest_slugs.length === 0) {
           // User profile is incomplete, navigate to profile completion
           setModalContent({
             title: "Complete Your Profile",
@@ -176,26 +207,16 @@ export function AuthScreen() {
       } catch (profileError: any) {
         console.error('Error checking user profile:', profileError);
         
-        // If profile doesn't exist (404), user needs to complete profile
-        if (profileError.message?.includes('404') || profileError.message?.includes('not found')) {
-          setModalContent({
-            title: "Complete Your Profile",
-            message: "Please complete your profile to continue.",
-            action: () => {
-              setShowSuccessModal(false);
-              navigation.navigate('profile-completion-screen');
-            }
-          });
-          setShowSuccessModal(true);
-        } else {
-          // Other error, show generic success but log the error
-          setModalContent({
-            title: "Success",
-            message: "Signed in successfully!",
-            action: () => setShowSuccessModal(false)
-          });
-          setShowSuccessModal(true);
-        }
+        // If API is unavailable (404, network error, etc.), assume profile needs completion
+        setModalContent({
+          title: "Complete Your Profile",
+          message: "Please complete your profile to continue.",
+          action: () => {
+            setShowSuccessModal(false);
+            navigation.navigate('profile-completion-screen');
+          }
+        });
+        setShowSuccessModal(true);
       }
     } catch (error: any) {
       console.error("Login error:", error);
@@ -278,7 +299,7 @@ export function AuthScreen() {
             navigation.navigate('profile-completion-screen');
           } else {
             // No tokens, navigate to login
-            navigation.navigate('login-screen');
+            navigation.navigate('auth-screen', { mode: 'login' });
           }
         }
       } catch (error: any) {
@@ -345,8 +366,8 @@ export function AuthScreen() {
         try {
           const userProfile = await userApi.getUserProfile(tokens.access_token || '');
           
-          if (!userProfile.username || !userProfile.display_name || !userProfile.interest_slugs || userProfile.interest_slugs.length === 0) {
-            if (!userProfile.email_verified) {
+          if (!userProfile || !userProfile.username || !userProfile.display_name || !userProfile.interest_slugs || userProfile.interest_slugs.length === 0) {
+            if (userProfile && !userProfile.email_verified) {
               await userApi.sendVerificationCode(userEmail, tokens.access_token);
               setModalContent({
                 title: "Email Verification Required",
@@ -358,7 +379,7 @@ export function AuthScreen() {
               });
               setShowSuccessModal(true);
             } else {
-              setUser({ id: userProfile.id || "google_user", email: userEmail, firstName: userEmail.split('@')[0] });
+              setUser({ id: (userProfile && userProfile.id) || "google_user", email: userEmail, firstName: userEmail.split('@')[0] });
               setModalContent({
                 title: "Complete Your Profile",
                 message: "Please complete your profile to continue.",
@@ -370,7 +391,7 @@ export function AuthScreen() {
               setShowSuccessModal(true);
             }
           } else {
-            setUser({ id: userProfile.id, email: userEmail, firstName: userProfile.display_name.split(' ')[0] || userEmail.split('@')[0] });
+            setUser({ id: userProfile.id, email: userEmail, firstName: (userProfile.display_name && userProfile.display_name.split(' ')[0]) || userEmail.split('@')[0] });
             setModalContent({
               title: "Success",
               message: "Signed in with Google successfully!",
@@ -379,26 +400,18 @@ export function AuthScreen() {
             setShowSuccessModal(true);
           }
         } catch (profileError: any) {
-          if (profileError.message?.includes('404') || profileError.message?.includes('not found')) {
-            try {
-              await userApi.sendVerificationCode(userEmail, tokens.access_token);
-              setModalContent({
-                title: "Welcome!",
-                message: "Please verify your email address to complete your account setup.",
-                action: () => {
-                  setShowSuccessModal(false);
-                  navigation.navigate('password-recovery-screen', { mode: 'email-verification', email: userEmail, fromLogin: false });
-                }
-              });
-              setShowSuccessModal(true);
-            } catch (verificationError: any) {
-              setModalContent({
-                title: "Error",
-                message: "Failed to send verification code. Please try again.",
-                action: () => setShowErrorModal(false)
-              });
-              setShowErrorModal(true);
-            }
+          if (profileError.message?.includes('404') || profileError.message?.includes('not found') || profileError.message?.includes('User not found')) {
+            // User exists in Cognito but not in our database - direct to profile completion
+            setUser({ id: "google_user", email: userEmail, firstName: userEmail.split('@')[0] });
+            setModalContent({
+              title: "Welcome!",
+              message: "Let's complete your profile to get started.",
+              action: () => {
+                setShowSuccessModal(false);
+                navigation.navigate('profile-completion-screen');
+              }
+            });
+            setShowSuccessModal(true);
           } else {
             setModalContent({
               title: "Error",
@@ -497,29 +510,38 @@ export function AuthScreen() {
   };
 
   return (
-    <ImageBackground 
-      source={require('../../../assets/images/Background.png')} 
-      style={{ flex: 1 }}
-      resizeMode="cover"
-    >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+      <ImageBackground 
+        source={require('../../../assets/images/Background.png')} 
+        style={{ flex: 1 }}
+        resizeMode="cover"
       >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+          className="flex-1"
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -100}
+        >
         <ScrollView 
+          ref={scrollViewRef}
           className="flex-1"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ 
+            flexGrow: 1,
+            paddingTop: Platform.OS === 'ios' ? 20 : 0,
+            paddingBottom: isKeyboardVisible ? 200 : 0
+          }}
           keyboardShouldPersistTaps="handled"
+          scrollEnabled={isKeyboardVisible}
+          nestedScrollEnabled={true}
         >
           {/* Header */}
-          <View className="items-center pt-16 pb-8">
+          <View className="pt-12 px-6 pb-6">
             <HomeLogo />
           </View>
 
           {/* Welcome Section */}
-          <View className="px-6 mb-8">
-            <View className="flex-row items-center mb-4">
+          <View className="px-6 mb-6">
+            <View className="flex-row items-center mb-3">
               <Text className="text-white text-3xl font-bold mr-3" style={{ fontFamily: fonts.SharpSansBold }}>
                 {isLogin ? 'Welcome Back' : 'Create Your Account'}
               </Text>
@@ -536,8 +558,8 @@ export function AuthScreen() {
           {/* Form Fields */}
           <View className="px-6">
             {/* Email Field */}
-            <View className="mb-6">
-              <Text className="text-white text-base font-medium mb-3" style={{ fontFamily: fonts.SharpSansMedium }}>
+            <View className="mb-4">
+              <Text className="text-white text-base font-medium mb-2" style={{ fontFamily: fonts.SharpSansMedium }}>
                 Email Address
               </Text>
               <ReusableInput
@@ -554,8 +576,8 @@ export function AuthScreen() {
             </View>
 
             {/* Password Field */}
-            <View className="mb-4">
-              <Text className="text-white text-base font-medium mb-3" style={{ fontFamily: fonts.SharpSansMedium }}>
+            <View className="mb-3">
+              <Text className="text-white text-base font-medium mb-2" style={{ fontFamily: fonts.SharpSansMedium }}>
                 Password
               </Text>
               <ReusableInput
@@ -577,8 +599,8 @@ export function AuthScreen() {
 
             {/* Confirm Password Field (only for signup) */}
             {!isLogin && (
-              <View className="mb-6">
-                <Text className="text-white text-base font-medium mb-3" style={{ fontFamily: fonts.SharpSansMedium }}>
+              <View className="mb-3">
+                <Text className="text-white text-base font-medium mb-2" style={{ fontFamily: fonts.SharpSansMedium }}>
                   Confirm Password
                 </Text>
                 <ReusableInput
@@ -586,6 +608,7 @@ export function AuthScreen() {
                   value={confirmPassword}
                   onChangeText={handleConfirmPasswordChange}
                   onBlur={handleConfirmPasswordBlur}
+                  onFocus={handleConfirmPasswordFocus}
                   isPassword={true}
                   leftIcon={<LockPassword color={confirmPasswordError ? '#FF5050' : 'white'} />}
                   rightIcon={isConfirmPasswordVisible ? <CloseEyeIcon /> : <EyeIcon />}
@@ -598,7 +621,7 @@ export function AuthScreen() {
 
             {/* Forgot Password (only for login) */}
             {isLogin && (
-              <View className="mb-6 flex-row justify-end">
+              <View className="mb-4 flex-row justify-end">
                 <TouchableOpacity onPress={navigateToForgotPassword}>
                   <GradientText style={{ fontSize: 14, fontWeight: '500' }}>
                     Forgot Password?
@@ -608,7 +631,7 @@ export function AuthScreen() {
             )}
 
             {/* Submit Button */}
-            <View className="mb-8">
+            <View className="mb-6">
               <ReusableButton
                 title={loading ? (isLogin ? "Signing In..." : "Creating Account...") : (isLogin ? "Sign In" : "Sign Up")}
                 variant="gradient"
@@ -619,12 +642,12 @@ export function AuthScreen() {
             </View>
 
             {/* Social Auth */}
-            <View className="items-center mb-8">
-              <Text className="text-gray-400 text-sm mb-6" style={{ fontFamily: fonts.SharpSansRegular }}>
+            <View className="items-center mb-6">
+              <Text className="text-gray-400 text-sm mb-4" style={{ fontFamily: fonts.SharpSansRegular }}>
                 Or {isLogin ? 'Sign In' : 'Sign Up'} With
               </Text>
               
-              <View className="flex-row justify-center space-x-4">
+              <View className="flex-row justify-center gap-x-4">
                 {/* Google */}
                 <TouchableOpacity 
                   onPress={handleGoogleAuth}
@@ -669,7 +692,7 @@ export function AuthScreen() {
             </View>
 
             {/* Switch Mode */}
-            <View className="flex-row justify-center items-center pb-8">
+            <View className="flex-row justify-center items-center pb-4">
               <Text className="text-gray-400 text-sm" style={{ fontFamily: fonts.SharpSansRegular }}>
                 {isLogin ? "Don't have an account? " : "Already have an account? "}
               </Text>
@@ -680,39 +703,40 @@ export function AuthScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
-      {/* Modals */}
-      {/* Success Modal */}
-      <InfoModal
-        visible={showSuccessModal}
-        title={modalContent.title}
-        message={modalContent.message}
-        buttonText="Continue"
-        onButtonPress={modalContent.action}
-        icon={<TickIcon />}
-      />
+        {/* Modals */}
+        {/* Success Modal */}
+        <InfoModal
+          visible={showSuccessModal}
+          title={modalContent.title}
+          message={modalContent.message}
+          buttonText="Continue"
+          onButtonPress={modalContent.action}
+          icon={<TickIcon />}
+        />
 
-      {/* Error Modal */}
-      <InfoModal
-        visible={showErrorModal}
-        title={modalContent.title}
-        message={modalContent.message}
-        buttonText="Try Again"
-        onButtonPress={modalContent.action}
-      />
+        {/* Error Modal */}
+        <InfoModal
+          visible={showErrorModal}
+          title={modalContent.title}
+          message={modalContent.message}
+          buttonText="Try Again"
+          onButtonPress={modalContent.action}
+        />
 
-      {/* Email Verification Confirmation Modal */}
-      <InfoModal
-        visible={showConfirmationModal}
-        title={modalContent.title}
-        message={modalContent.message}
-        buttonText="Verify Email"
-        onButtonPress={modalContent.action}
-        showCloseButton={true}
-        onClose={() => setShowConfirmationModal(false)}
-      />
-    </ImageBackground>
+        {/* Email Verification Confirmation Modal */}
+        <InfoModal
+          visible={showConfirmationModal}
+          title={modalContent.title}
+          message={modalContent.message}
+          buttonText="Verify Email"
+          onButtonPress={modalContent.action}
+          showCloseButton={true}
+          onClose={() => setShowConfirmationModal(false)}
+        />
+      </ImageBackground>
+    </SafeAreaView>
   );
 }

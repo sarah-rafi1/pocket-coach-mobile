@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, Image } from 'react-native';
+import { View, Text, ImageBackground, TouchableOpacity, Image, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ReusableButton } from '../../components';
@@ -16,13 +17,14 @@ export function ProfileSuccessScreen() {
   };
 
   return (
-    <ImageBackground 
-      source={require('../../../assets/images/Background.png')} 
-      className="flex-1"
-      resizeMode="cover"
-    >
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+      <ImageBackground 
+        source={require('../../../assets/images/Background.png')} 
+        className="flex-1"
+        resizeMode="cover"
+      >
       {/* Main Content */}
-      <View className="flex-1 px-6 justify-center items-center">
+      <View className={`flex-1 px-6 justify-center items-center ${Platform.OS === 'ios' ? 'pt-5' : ''}`}>
         {/* Complete Profile Image */}
         <View className="mb-8">
           <Image 
@@ -51,6 +53,7 @@ export function ProfileSuccessScreen() {
           onPress={handleGoToHome}
         />
       </View>
-    </ImageBackground>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }

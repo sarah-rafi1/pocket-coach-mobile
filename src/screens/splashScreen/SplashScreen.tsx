@@ -1,22 +1,25 @@
 import React from 'react';
-import { View, ImageBackground } from 'react-native';
+import { View, ImageBackground, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SplashScreenLogo as SplashScreenLogoSvg } from '../../../assets/icons';
 
 export function SplashScreen() {
   return (
-    <ImageBackground 
-      source={require('../../../assets/images/Background.png')} 
-      className="flex-1"
-      resizeMode="cover"
-    >
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+      <ImageBackground 
+        source={require('../../../assets/images/Background.png')} 
+        className="flex-1"
+        resizeMode="cover"
+      >
       {/* Content */}
-      <View className="flex-1 justify-center items-center px-8 pt-15">
+      <View className={`flex-1 justify-center items-center px-8 ${Platform.OS === 'ios' ? 'pt-20' : 'pt-15'}`}>
         {/* Logo */}
         <View className="mb-6">
           <SplashScreenLogoSvg />
         </View>
         
       </View>
-    </ImageBackground>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }

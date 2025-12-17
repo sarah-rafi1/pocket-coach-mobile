@@ -64,12 +64,12 @@ export const userApi = {
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const response_data = await response.json();
     console.log('✅ [API SUCCESS] => GET /users/me', {
-      responseData: data,
+      responseData: response_data,
       timestamp: new Date().toISOString()
     });
-    return data as UserProfile;
+    return response_data.data as UserProfile;
   },
 
   sendVerificationCode: async (email: string, accessToken?: string) => {
@@ -171,12 +171,12 @@ export const userApi = {
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const response_data = await response.json();
     console.log('✅ [API SUCCESS] => GET /interests', {
-      responseData: data,
-      interestCount: Array.isArray(data) ? data.length : 'unknown',
+      responseData: response_data,
+      interestCount: Array.isArray(response_data.data) ? response_data.data.length : 'unknown',
       timestamp: new Date().toISOString()
     });
-    return data as Interest[];
+    return response_data.data as Interest[];
   },
 };

@@ -50,7 +50,8 @@ const generatePKCE = async () => {
   return { codeVerifier, codeChallenge: codeChallengeFormatted };
 };
 
-let pkceVerifier: string | null = null;
+// Store PKCE verifiers per session to avoid conflicts
+const pkceVerifiers = new Map<string, string>();
 
 // Mock authentication for development
 const createMockTokens = async (provider: string): Promise<AuthTokens> => {
@@ -77,8 +78,10 @@ export const signInWithGoogle = async (isSignUp: boolean = false): Promise<AuthT
   }
 
   try {
+    // Generate unique session ID and PKCE for this attempt
+    const sessionId = `google_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const { codeVerifier, codeChallenge } = await generatePKCE();
-    pkceVerifier = codeVerifier;
+    pkceVerifiers.set(sessionId, codeVerifier);
     
     const redirectUri = makeRedirectUri({
       scheme: 'pocketcoach',
@@ -98,6 +101,8 @@ export const signInWithGoogle = async (isSignUp: boolean = false): Promise<AuthT
       scope: "openid email phone",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
+      state: sessionId, // Pass session ID to retrieve correct verifier later
+      prompt: "select_account", // Force Google to show account selection
     });
     
     // Google will handle both new and existing users automatically
@@ -112,18 +117,27 @@ export const signInWithGoogle = async (isSignUp: boolean = false): Promise<AuthT
     if (result.type === "success" && result.url) {
       const url = new URL(result.url);
       const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
       const error = url.searchParams.get("error");
       
       console.log("✅ Success URL:", result.url);
       console.log("🔑 Authorization code:", code);
+      console.log("🔑 State parameter:", state);
       console.log("❌ Error in URL:", error);
       
       if (error) {
+        // Clean up verifier on error
+        if (state) {
+          pkceVerifiers.delete(state);
+        }
         throw new Error(`OAuth error: ${error}`);
       }
       
-      if (code) {
-        return await handleOAuthCallback(code);
+      if (code && state) {
+        const tokens = await handleOAuthCallback(code, state);
+        // Clean up verifier after successful use
+        pkceVerifiers.delete(state);
+        return tokens;
       }
     }
     
@@ -131,6 +145,17 @@ export const signInWithGoogle = async (isSignUp: boolean = false): Promise<AuthT
     throw new Error("Authentication was cancelled or failed");
   } catch (error: any) {
     console.error("Error with Google sign in:", error);
+    // Clean up any pending verifiers on error
+    const now = Date.now();
+    for (const [key] of pkceVerifiers.entries()) {
+      if (key.startsWith('google_')) {
+        const timestamp = parseInt(key.split('_')[1]);
+        // Remove verifiers older than 5 minutes
+        if (now - timestamp > 5 * 60 * 1000) {
+          pkceVerifiers.delete(key);
+        }
+      }
+    }
     const authError: AuthError = new Error(error.message || "Google sign in failed");
     authError.code = error.code;
     throw authError;
@@ -150,8 +175,10 @@ export const signInWithFacebook = async (isSignUp: boolean = false): Promise<Aut
   }
 
   try {
+    // Generate unique session ID and PKCE for this attempt
+    const sessionId = `facebook_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const { codeVerifier, codeChallenge } = await generatePKCE();
-    pkceVerifier = codeVerifier;
+    pkceVerifiers.set(sessionId, codeVerifier);
     
     const redirectUri = makeRedirectUri({
       scheme: 'pocketcoach',
@@ -170,6 +197,7 @@ export const signInWithFacebook = async (isSignUp: boolean = false): Promise<Aut
       scope: "openid email phone",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
+      state: sessionId, // Pass session ID to retrieve correct verifier later
     });
     
     // For sign-up, we want to show the Cognito UI with Facebook option
@@ -184,15 +212,30 @@ export const signInWithFacebook = async (isSignUp: boolean = false): Promise<Aut
     if (result.type === "success" && result.url) {
       const url = new URL(result.url);
       const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
       
-      if (code) {
-        return await handleOAuthCallback(code);
+      if (code && state) {
+        const tokens = await handleOAuthCallback(code, state);
+        // Clean up verifier after successful use
+        pkceVerifiers.delete(state);
+        return tokens;
       }
     }
     
     throw new Error("Authentication was cancelled or failed");
   } catch (error: any) {
     console.error("Error with Facebook sign in:", error);
+    // Clean up any pending verifiers on error
+    const now = Date.now();
+    for (const [key] of pkceVerifiers.entries()) {
+      if (key.startsWith('facebook_')) {
+        const timestamp = parseInt(key.split('_')[1]);
+        // Remove verifiers older than 5 minutes
+        if (now - timestamp > 5 * 60 * 1000) {
+          pkceVerifiers.delete(key);
+        }
+      }
+    }
     const authError: AuthError = new Error(error.message || "Facebook sign in failed");
     authError.code = error.code;
     throw authError;
@@ -218,15 +261,17 @@ export const signInWithApple = async (isSignUp: boolean = false): Promise<AuthTo
       throw new Error("Apple Authentication is not available on this device");
     }
     
-    const credential = await AppleAuthentication.signInAsync({
+    await AppleAuthentication.signInAsync({
       requestedScopes: [
         AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
         AppleAuthentication.AppleAuthenticationScope.EMAIL,
       ],
     });
     
+    // Generate unique session ID and PKCE for this attempt
+    const sessionId = `apple_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const { codeVerifier, codeChallenge } = await generatePKCE();
-    pkceVerifier = codeVerifier;
+    pkceVerifiers.set(sessionId, codeVerifier);
     
     const redirectUri = makeRedirectUri({
       scheme: 'pocketcoach',
@@ -245,6 +290,7 @@ export const signInWithApple = async (isSignUp: boolean = false): Promise<AuthTo
       scope: "openid email phone",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
+      state: sessionId,
     });
     
     // For sign-up, we want to show the Cognito UI with Apple option
@@ -259,9 +305,13 @@ export const signInWithApple = async (isSignUp: boolean = false): Promise<AuthTo
     if (result.type === "success" && result.url) {
       const url = new URL(result.url);
       const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
       
-      if (code) {
-        return await handleOAuthCallback(code);
+      if (code && state) {
+        const tokens = await handleOAuthCallback(code, state);
+        // Clean up verifier after successful use
+        pkceVerifiers.delete(state);
+        return tokens;
       }
     }
     
@@ -271,6 +321,17 @@ export const signInWithApple = async (isSignUp: boolean = false): Promise<AuthTo
       throw new Error("Apple sign in was cancelled");
     }
     console.error("Error with Apple sign in:", error);
+    // Clean up any pending verifiers on error
+    const now = Date.now();
+    for (const [key] of pkceVerifiers.entries()) {
+      if (key.startsWith('apple_')) {
+        const timestamp = parseInt(key.split('_')[1]);
+        // Remove verifiers older than 5 minutes
+        if (now - timestamp > 5 * 60 * 1000) {
+          pkceVerifiers.delete(key);
+        }
+      }
+    }
     const authError: AuthError = new Error(error.message || "Apple sign in failed");
     authError.code = error.code;
     throw authError;
@@ -281,7 +342,7 @@ export const signUpWithApple = async (): Promise<AuthTokens> => {
   return signInWithApple(true);
 };
 
-export const handleOAuthCallback = async (code: string): Promise<AuthTokens> => {
+export const handleOAuthCallback = async (code: string, sessionId?: string): Promise<AuthTokens> => {
   const cognitoTokenUrl = `https://${config.cognitoDomain}/oauth2/token`;
   
   const redirectUri = makeRedirectUri({
@@ -289,12 +350,30 @@ export const handleOAuthCallback = async (code: string): Promise<AuthTokens> => 
     path: 'callback'
   });
   
+  // Retrieve the correct verifier for this session
+  let codeVerifier: string;
+  if (sessionId) {
+    const verifier = pkceVerifiers.get(sessionId);
+    if (!verifier) {
+      throw new Error("Invalid session or expired authentication request");
+    }
+    codeVerifier = verifier;
+  } else {
+    // Fallback for older implementations - try to find any verifier
+    const verifiers = Array.from(pkceVerifiers.values());
+    if (verifiers.length === 0) {
+      throw new Error("No authentication session found");
+    }
+    codeVerifier = verifiers[0];
+    console.warn("Using fallback verifier - this should be updated to use sessionId");
+  }
+  
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: config.clientId,
     code: code,
     redirect_uri: redirectUri,
-    code_verifier: pkceVerifier || "",
+    code_verifier: codeVerifier,
   });
   
   try {
@@ -318,7 +397,7 @@ export const handleOAuthCallback = async (code: string): Promise<AuthTokens> => 
     await AsyncStorage.setItem("accessToken", tokens.access_token || "");
     await AsyncStorage.setItem("refreshToken", tokens.refresh_token || "");
     
-    pkceVerifier = null;
+    // Cleanup is handled by the caller
     
     return tokens;
   } catch (error: any) {

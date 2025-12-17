@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ImageBackground } from 'react-native';
+import { View, Text, ImageBackground, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ReusableButton, GradientText } from '../../components';
@@ -22,13 +23,14 @@ export function HomeScreen() {
   };
 
   return (
-    <ImageBackground 
-      source={require('../../../assets/images/HomeBackground.png')} 
-      className="flex-1"
-      resizeMode="cover"
-    >
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+      <ImageBackground 
+        source={require('../../../assets/images/HomeBackground.png')} 
+        className="flex-1"
+        resizeMode="cover"
+      >
       {/* Header with Logo */}
-      <View className="flex-row items-center justify-center pt-24 pb-8">
+      <View className={`flex-row items-center justify-center ${Platform.OS === 'ios' ? 'pt-28' : 'pt-24'} pb-8`}>
         <HomeLogo />
       </View>
 
@@ -73,6 +75,7 @@ export function HomeScreen() {
           />
         </View>
       </View>
-    </ImageBackground>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }

@@ -142,4 +142,11 @@ export const validateEmailField = createFieldValidator(emailSchema);
 export const validatePasswordField = createFieldValidator(passwordSchema);
 export const validateUsernameField = createFieldValidator(usernameSchema);
 export const validateDisplayNameField = createFieldValidator(displayNameSchema);
-export const validateBioField = createFieldValidator(bioSchema);
+// Special validator for optional bio field
+export const validateBioField = (data: unknown) => {
+  // If bio is empty, undefined, or null, it's valid (since it's optional)
+  if (!data || (typeof data === 'string' && data.trim() === '')) {
+    return { isValid: true, error: null };
+  }
+  return validateField(bioSchema, data);
+};

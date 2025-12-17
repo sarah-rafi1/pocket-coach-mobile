@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ImageBackground, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, Keyboard, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as ImagePicker from 'expo-image-picker';
 import { ReusableButton, ReusableInput, BackArrowButton, InfoModal } from '../../components';
 import { fonts } from '../../constants/typography';
 import { AppRoutes } from '../../types';
-import { useOnboardingMutation, useInterestsQuery } from '../../hooks';
+import { useOnboardingMutation, useInterestsQuery, Interest } from '../../hooks';
 import { OnboardingPayload } from '../../services/apis/OnboardingApis';
 import { retrieveCognitoTokens } from '../../utils/AsyncStorageApis';
 import { 
   profileStep1Schema, 
   profileStep2Schema, 
+  onboardingSchema,
   validateForm, 
   validateField,
   validateUsernameField,
@@ -35,7 +37,11 @@ export function ProfileCompletionScreen() {
   const navigation = useNavigation<ProfileCompletionNavigationProp>();
   const onboardingMutation = useOnboardingMutation();
   const { data: interests, isLoading: interestsLoading, error: interestsError } = useInterestsQuery();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [currentStep, setCurrentStep] = useState(1);
+  
+  // Keyboard state
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({
     username: '',
     displayName: '',
@@ -52,31 +58,94 @@ export function ProfileCompletionScreen() {
   const [usernameError, setUsernameError] = useState('');
   const [displayNameError, setDisplayNameError] = useState('');
 
-  // Get available interests from API
-  const availableInterests = interests || [];
+  // Get available interests from API - handle both direct array and nested object response
+  const getInterestsArray = (): Interest[] => {
+    try {
+      // Return empty array if interests is null, undefined, or loading
+      if (!interests) {
+        return [];
+      }
+      
+      // If interests is directly an array (as expected from userApi.getInterests)
+      if (Array.isArray(interests)) {
+        return interests;
+      }
+      
+      // If interests is an object with nested data array (actual API response structure)
+      if (typeof interests === 'object' && interests !== null && Array.isArray((interests as any).data)) {
+        return (interests as any).data;
+      }
+      
+      // Fallback to empty array
+      return [];
+    } catch (error) {
+      console.error('Error processing interests data:', error);
+      return [];
+    }
+  };
+
+  const availableInterests: Interest[] = getInterestsArray();
+
+  // Debug logging in useEffect to prevent re-render loops
+  useEffect(() => {
+    console.log('🔍 [DEBUG] Interests data structure:', {
+      interests,
+      isArray: Array.isArray(interests),
+      type: typeof interests,
+      hasDataProperty: interests && typeof interests === 'object' && 'data' in interests,
+      dataIsArray: interests && typeof interests === 'object' && Array.isArray((interests as any).data),
+      availableInterests,
+      availableInterestsLength: availableInterests.length
+    });
+  }, [interests, availableInterests]);
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
 
   // Function to get emoji based on interest value
   const getInterestEmoji = (interestValue: string): string => {
-    const emojiMap: Record<string, string> = {
-      'basketball': '🏀',
-      'cycling': '🚴',
-      'fitness': '💪',
-      'mind-training': '🧠',
-      'running': '🏃',
-      'skating': '⛸️',
-      'football': '⚽',
-      'soccer': '⚽',
-      'tennis': '🎾',
-      'swimming': '🏊',
-      'yoga': '🧘',
-      'boxing': '🥊',
-      'baseball': '⚾',
-      'golf': '⛳',
-      'surfing': '🏄',
-      'snowboard': '🏂',
-    };
-    return emojiMap[interestValue.toLowerCase()] || '🏃'; // Default emoji
+    try {
+      if (!interestValue || typeof interestValue !== 'string') {
+        return '🏃'; // Default emoji
+      }
+      
+      const emojiMap: Record<string, string> = {
+        'basketball': '🏀',
+        'cycling': '🚴',
+        'fitness': '💪',
+        'mind-training': '🧠',
+        'running': '🏃',
+        'skating': '⛸️',
+        'football': '⚽',
+        'soccer': '⚽',
+        'tennis': '🎾',
+        'swimming': '🏊',
+        'yoga': '🧘',
+        'boxing': '🥊',
+        'baseball': '⚾',
+        'golf': '⛳',
+        'surfing': '🏄',
+        'snowboard': '🏂',
+      };
+      return emojiMap[interestValue.toLowerCase()] || '🏃'; // Default emoji
+    } catch (error) {
+      console.error('Error getting emoji for interest:', interestValue, error);
+      return '🏃'; // Default emoji
+    }
   };
 
   const handleImageSelection = async () => {
@@ -195,6 +264,12 @@ export function ProfileCompletionScreen() {
     }
   };
 
+  const handleInputFocus = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
   const validateStep1 = () => {
     const step1Data = {
       username: profileData.username,
@@ -262,7 +337,7 @@ export function ProfileCompletionScreen() {
           message: 'Session expired. Please log in again.',
           action: () => {
             setShowErrorModal(false);
-            navigation.navigate('login-screen');
+            navigation.navigate('auth-screen', { mode: 'login' });
           }
         });
         setShowErrorModal(true);
@@ -270,13 +345,17 @@ export function ProfileCompletionScreen() {
       }
 
       // Use selected interest values directly as slugs (API already provides the correct values)
-      const interestSlugs = selectedInterests;
+      // Ensure interestSlugs is always an array with valid string values
+      const interestSlugs = Array.isArray(selectedInterests) 
+        ? selectedInterests.filter(interest => typeof interest === 'string' && interest.trim() !== '') 
+        : [];
       
       console.log('🔍 [DEBUG] Selected interests before API call:', {
         selectedInterests,
         interestSlugs,
         interestCount: interestSlugs.length,
-        isArray: Array.isArray(interestSlugs)
+        isArray: Array.isArray(interestSlugs),
+        validStringValues: interestSlugs.every(slug => typeof slug === 'string')
       });
 
       // Validate step 2 (interests) using Zod
@@ -300,7 +379,7 @@ export function ProfileCompletionScreen() {
         username: profileData.username,
         display_name: profileData.displayName,
         bio: profileData.bio || undefined,
-        interest_slugs: interestSlugs
+        interest_slugs: interestSlugs // This is guaranteed to be an array now
       };
       
       // Only include profile_image if one is actually selected
@@ -315,7 +394,7 @@ export function ProfileCompletionScreen() {
         console.log('❌ [VALIDATION] Final onboarding validation failed:', finalValidation.errors);
         
         // Create user-friendly error message
-        const errorMessages = Object.entries(finalValidation.errors)
+        const errorMessages = Object.entries(finalValidation.errors || {})
           .map(([field, message]) => `${field}: ${message}`)
           .join('\n');
           
@@ -332,7 +411,7 @@ export function ProfileCompletionScreen() {
         hasProfileImage: !!profileData.profileImage,
         imageUri: profileData.profileImage || 'none',
         imageType: profileData.profileImage ? (profileData.profileImage.startsWith('file://') ? 'local file' : 'other') : 'none',
-        payloadKeys: Object.keys(onboardingPayload),
+        payloadKeys: onboardingPayload ? Object.keys(onboardingPayload) : [],
         interestCount: onboardingPayload.interest_slugs?.length,
         validationPassed: true
       });
@@ -376,7 +455,7 @@ export function ProfileCompletionScreen() {
   const renderStep1 = () => (
     <>
       {/* Header with Back Button */}
-      <View className="flex-row items-center justify-between px-6 pt-16 pb-4">
+      <View className="flex-row items-center justify-between px-6 pt-12 pb-3">
         <BackArrowButton onPress={handleBackPress} />
         
         {/* Progress Indicators */}
@@ -389,24 +468,32 @@ export function ProfileCompletionScreen() {
 
       {/* Main Content */}
       <ScrollView 
+        ref={scrollViewRef}
         className="flex-1 px-6" 
+        
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ 
+          paddingTop: Platform.OS === 'ios' ? 20 : 0,
+          paddingBottom: isKeyboardVisible ? 200 : 0
+        }}
+        scrollEnabled={isKeyboardVisible}
+        nestedScrollEnabled={true}
       >
         {/* Title */}
-        <Text className="text-white text-3xl font-bold text-center mb-2" style={{ fontFamily: fonts.SharpSansBold }}>
+        <Text className="text-white text-2xl font-bold text-center mb-1" style={{ fontFamily: fonts.SharpSansBold }}>
           Complete Your Profile
         </Text>
         
-        <Text className="text-gray-400 text-base text-center mb-8" style={{ fontFamily: fonts.SharpSansRegular }}>
+        <Text className="text-gray-400 text-sm text-center mb-6" style={{ fontFamily: fonts.SharpSansRegular }}>
           The info will be displayed publically
         </Text>
 
         {/* Profile Image Section */}
-        <View className="items-center mb-8">
+        <View className="items-center mb-6">
           <TouchableOpacity onPress={handleImageSelection} className="relative">
             {profileData.profileImage ? (
-              <View className="w-32 h-32 rounded-full overflow-hidden">
+              <View className="w-24 h-24 rounded-full overflow-hidden">
                 <ImageBackground 
                   source={{ uri: profileData.profileImage }} 
                   className="w-full h-full"
@@ -414,10 +501,10 @@ export function ProfileCompletionScreen() {
                 />
               </View>
             ) : (
-              <View className="w-32 h-32 rounded-full overflow-hidden items-center justify-center">
+              <View className="w-24 h-24 rounded-full overflow-hidden items-center justify-center">
                 <Image 
                   source={require('../../../assets/images/User.png')} 
-                  style={{ width: 90, height: 90 }}
+                  style={{ width: 70, height: 70 }}
                   resizeMode="contain"
                 />
               </View>
@@ -426,8 +513,8 @@ export function ProfileCompletionScreen() {
         </View>
 
         {/* Username Field */}
-        <View className="mb-6">
-          <Text className="text-white text-base font-medium mb-3" style={{ fontFamily: fonts.SharpSansMedium }}>
+        <View className="mb-4">
+          <Text className="text-white text-sm font-medium mb-2" style={{ fontFamily: fonts.SharpSansMedium }}>
             Username
           </Text>
           <ReusableInput
@@ -442,14 +529,15 @@ export function ProfileCompletionScreen() {
         </View>
 
         {/* Display Name Field */}
-        <View className="mb-6">
-          <Text className="text-white text-base font-medium mb-3" style={{ fontFamily: fonts.SharpSansMedium }}>
+        <View className="mb-4">
+          <Text className="text-white text-sm font-medium mb-2" style={{ fontFamily: fonts.SharpSansMedium }}>
             Display Name
           </Text>
           <ReusableInput
             placeholder="example123"
             value={profileData.displayName}
             onChangeText={handleDisplayNameChange}
+            onFocus={handleInputFocus}
             leftIcon={<User />}
             error={displayNameError}
             hasError={!!displayNameError}
@@ -457,23 +545,24 @@ export function ProfileCompletionScreen() {
         </View>
 
         {/* Bio Field */}
-        <View className="mb-8">
-          <Text className="text-white text-base font-medium mb-3" style={{ fontFamily: fonts.SharpSansMedium }}>
-            Bio <Text className="text-gray-400 text-sm">(Optional)</Text>
+        <View className="mb-6">
+          <Text className="text-white text-sm font-medium mb-2" style={{ fontFamily: fonts.SharpSansMedium }}>
+            Bio <Text className="text-gray-400 text-xs">(Optional)</Text>
           </Text>
           <ReusableInput
             placeholder="Enter Bio"
             value={profileData.bio}
             onChangeText={handleBioChange}
+            onFocus={handleInputFocus}
             multiline
-            numberOfLines={4}
-            style={{ height: 100, textAlignVertical: 'top' }}
+            numberOfLines={3}
+            style={{ height: 80, textAlignVertical: 'top' }}
           />
         </View>
       </ScrollView>
 
       {/* Fixed Bottom Button */}
-      <View className="px-6 pb-12 pt-4">
+      <View className="px-6 pb-8 pt-3">
         <ReusableButton
           title="Continue"
           variant="gradient"
@@ -487,7 +576,7 @@ export function ProfileCompletionScreen() {
   const renderStep2 = () => (
     <>
       {/* Header with Back Button */}
-      <View className="flex-row items-center justify-between px-6 pt-16 pb-4">
+      <View className="flex-row items-center justify-between px-6 pt-12 pb-3">
         <BackArrowButton onPress={handleBackPress} />
         
         {/* Progress Indicators */}
@@ -502,14 +591,20 @@ export function ProfileCompletionScreen() {
       <ScrollView 
         className="flex-1 px-6" 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ 
+          paddingTop: Platform.OS === 'ios' ? 20 : 0,
+          paddingBottom: isKeyboardVisible ? 200 : 0
+        }}
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={isKeyboardVisible}
+        nestedScrollEnabled={true}
       >
         {/* Title */}
-        <Text className="text-white text-3xl font-bold text-center mb-2" style={{ fontFamily: fonts.SharpSansBold }}>
+        <Text className="text-white text-2xl font-bold text-center mb-1" style={{ fontFamily: fonts.SharpSansBold }}>
           Choose Your Interests
         </Text>
         
-        <Text className="text-gray-400 text-base text-center mb-8" style={{ fontFamily: fonts.SharpSansRegular }}>
+        <Text className="text-gray-400 text-sm text-center mb-6" style={{ fontFamily: fonts.SharpSansRegular }}>
           Select your interests to personalize your experience.
         </Text>
 
@@ -528,47 +623,62 @@ export function ProfileCompletionScreen() {
               </Text>
             </View>
           ) : (
-            availableInterests.map((interest) => {
-              const isSelected = selectedInterests.includes(interest.value);
-              return (
-                <TouchableOpacity
-                  key={interest.value}
-                  onPress={() => handleInterestToggle(interest.value)}
-                  className={`w-[48%] p-4 mb-4 rounded-xl border-2 ${
-                    isSelected 
-                      ? 'border-blue-400 bg-gray-900' 
-                      : 'border-gray-700 bg-gray-900/50'
-                  }`}
-                >
-                  <View className="flex-row items-center">
-                    <Text className="text-2xl mr-2">{getInterestEmoji(interest.value)}</Text>
-                    <Text 
-                      className={`font-medium flex-1 ${
-                        isSelected ? 'text-white' : 'text-gray-300'
-                      }`}
-                      style={{ fontFamily: fonts.SharpSansMedium }}
-                    >
-                      {interest.label}
-                    </Text>
-                    <View className={`w-5 h-5 rounded border-2 ${
+            availableInterests && availableInterests.length > 0 ? availableInterests.map((interest: Interest) => {
+              try {
+                if (!interest || typeof interest !== 'object' || !interest.value || !interest.label) {
+                  return null;
+                }
+                
+                const isSelected = selectedInterests.includes(interest.value);
+                return (
+                  <TouchableOpacity
+                    key={interest.value}
+                    onPress={() => handleInterestToggle(interest.value)}
+                    className={`w-[48%] p-3 mb-3 rounded-lg border-2 ${
                       isSelected 
-                        ? 'border-blue-400 bg-blue-400' 
-                        : 'border-gray-500'
-                    }`}>
-                      {isSelected && (
-                        <Text className="text-white text-center text-xs">✓</Text>
-                      )}
+                        ? 'border-blue-400 bg-gray-900' 
+                        : 'border-gray-700 bg-gray-900/50'
+                    }`}
+                  >
+                    <View className="flex-row items-center">
+                      <Text className="text-xl mr-2">{getInterestEmoji(interest.value)}</Text>
+                      <Text 
+                        className={`font-medium flex-1 text-sm ${
+                          isSelected ? 'text-white' : 'text-gray-300'
+                        }`}
+                        style={{ fontFamily: fonts.SharpSansMedium }}
+                      >
+                        {interest.label}
+                      </Text>
+                      <View className={`w-4 h-4 rounded border-2 ${
+                        isSelected 
+                          ? 'border-blue-400 bg-blue-400' 
+                          : 'border-gray-500'
+                      }`}>
+                        {isSelected && (
+                          <Text className="text-white text-center text-xs">✓</Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+                  </TouchableOpacity>
+                );
+              } catch (error) {
+                console.error('Error rendering interest:', interest, error);
+                return null;
+              }
+            }).filter(Boolean) : (
+              <View className="w-full items-center py-8">
+                <Text className="text-gray-400 text-base" style={{ fontFamily: fonts.SharpSansRegular }}>
+                  No interests available
+                </Text>
+              </View>
+            )
           )}
         </View>
       </ScrollView>
 
       {/* Fixed Bottom Button */}
-      <View className="px-6 pb-12 pt-4">
+      <View className="px-6 pb-8 pt-3">
         <ReusableButton
           title={onboardingMutation.isPending ? "Creating Profile..." : "Continue"}
           variant="gradient"
@@ -582,14 +692,16 @@ export function ProfileCompletionScreen() {
 
 
   return (
-    <ImageBackground 
-      source={require('../../../assets/images/Background.png')} 
-      className="flex-1"
-      resizeMode="cover"
-    >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+      <ImageBackground 
+        source={require('../../../assets/images/Background.png')} 
         className="flex-1"
+        resizeMode="cover"
+      >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -100}
       >
         {currentStep === 1 ? renderStep1() : renderStep2()}
       </KeyboardAvoidingView>
@@ -614,18 +726,66 @@ export function ProfileCompletionScreen() {
       />
 
       {/* Image Picker Modal */}
-      <InfoModal
+      <Modal
         visible={showImagePickerModal}
-        title={modalContent.title}
-        message={modalContent.message}
-        buttonText="Gallery"
-        onButtonPress={() => {
-          setShowImagePickerModal(false);
-          openGallery();
-        }}
-        showCloseButton={true}
-        onClose={() => setShowImagePickerModal(false)}
-      />
-    </ImageBackground>
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+      >
+        <View className="flex-1 bg-black/50 justify-center items-center px-6">
+          <View 
+            className="bg-[#0D1117] rounded-2xl py-8 px-6 items-center"
+            style={{ width: '100%', maxWidth: 300 }}
+          >
+            {/* Title */}
+            <Text className="text-white text-xl font-bold text-center mb-2" style={{ fontFamily: fonts.SharpSansBold }}>
+              Select Image
+            </Text>
+            
+            {/* Message */}
+            <Text className="text-gray-400 text-base text-center mb-6" style={{ fontFamily: fonts.SharpSansRegular }}>
+              Choose how you want to add your profile image
+            </Text>
+
+            {/* Buttons */}
+            <View className="w-full gap-y-3">
+              {/* Camera Button */}
+              <ReusableButton
+                title="📷 Take Photo"
+                variant="gradient"
+                fullWidth={true}
+                onPress={() => {
+                  setShowImagePickerModal(false);
+                  openCamera();
+                }}
+              />
+              
+              {/* Gallery Button */}
+              <ReusableButton
+                title="🖼️ Choose from Gallery"
+                variant="outlined"
+                fullWidth={true}
+                gradientText={true}
+                onPress={() => {
+                  setShowImagePickerModal(false);
+                  openGallery();
+                }}
+              />
+              
+              {/* Cancel Button */}
+              <ReusableButton
+                title="Cancel"
+                variant="text"
+                fullWidth={true}
+                gradientText={true}
+                textStyle={{ fontSize: 14 }}
+                onPress={() => setShowImagePickerModal(false)}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ImageBackground, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, ImageBackground, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -35,6 +36,10 @@ type PasswordRecoveryRouteProp = RouteProp<AppRoutes, 'password-recovery-screen'
 export function PasswordRecoveryScreen() {
   const navigation = useNavigation<PasswordRecoveryNavigationProp>();
   const route = useRoute<PasswordRecoveryRouteProp>();
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  // Keyboard state
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   
   // Screen state management
   type ScreenMode = 'forgot-password' | 'email-verification' | 'reset-password';
@@ -46,6 +51,22 @@ export function PasswordRecoveryScreen() {
       setCurrentMode(route.params.mode);
     }
   }, [route.params?.mode]);
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   // Common form fields
   const [email, setEmail] = useState(route.params?.email || '');
@@ -176,6 +197,12 @@ export function PasswordRecoveryScreen() {
     if (confirmPassword && confirmPassword !== newPassword) {
       setConfirmPasswordError('Passwords do not match');
     }
+  };
+
+  const handlePasswordFieldFocus = () => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
   };
 
   // Navigation handlers
@@ -447,6 +474,7 @@ export function PasswordRecoveryScreen() {
             placeholder="••••••••"
             value={newPassword}
             onChangeText={handleNewPasswordChange}
+            onFocus={handlePasswordFieldFocus}
             isPassword={true}
             leftIcon={<LockPassword color='white' />}
             rightIcon={isNewPasswordVisible ? <CloseEyeIcon /> : <EyeIcon />}
@@ -463,6 +491,7 @@ export function PasswordRecoveryScreen() {
             value={confirmPassword}
             onChangeText={handleConfirmPasswordChange}
             onBlur={handleConfirmPasswordBlur}
+            onFocus={handlePasswordFieldFocus}
             isPassword={true}
             leftIcon={<LockPassword color={confirmPasswordError ? '#FF5050' : 'white'} />}
             rightIcon={isConfirmPasswordVisible ? <CloseEyeIcon /> : <EyeIcon />}
@@ -542,20 +571,29 @@ export function PasswordRecoveryScreen() {
   };
 
   return (
-    <ImageBackground 
-      source={require('../../../assets/images/Background.png')} 
-      style={{ flex: 1 }}
-      resizeMode="cover"
-    >
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+      <ImageBackground 
+        source={require('../../../assets/images/Background.png')} 
+        style={{ flex: 1 }}
+        resizeMode="cover"
+      >
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         className="flex-1"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -100}
       >
         <ScrollView 
+          ref={scrollViewRef}
           className="flex-1"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ 
+            flexGrow: 1,
+            paddingTop: Platform.OS === 'ios' ? 20 : 0,
+            paddingBottom: isKeyboardVisible ? 200 : 0
+          }}
+          scrollEnabled={isKeyboardVisible}
+          nestedScrollEnabled={true}
         >
           <View className="flex-row items-center px-5 pt-20">
             <BackArrowButton onPress={handleBackPress} />
@@ -601,6 +639,7 @@ export function PasswordRecoveryScreen() {
         visible={showPasswordUpdatedModal}
         onLoginNow={handleLoginNow}
       />
-    </ImageBackground>
+      </ImageBackground>
+    </SafeAreaView>
   );
 }

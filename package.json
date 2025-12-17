@@ -1,5 +1,5 @@
 {
-  "name": "tsa-rn",
+  "name": "pocket-coach",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
@@ -20,12 +20,12 @@
     "@react-navigation/stack": "^7.2.10",
     "@tanstack/react-query": "^5.76.2",
     "axios": "^1.8.4",
-    "expo": "~54.0.27",
+    "expo": "~54.0.29",
     "expo-apple-authentication": "~8.0.8",
     "expo-auth-session": "~7.0.10",
     "expo-crypto": "~15.0.8",
     "expo-file-system": "^19.0.20",
-    "expo-image-picker": "^17.0.9",
+    "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-splash-screen": "~31.0.12",
     "expo-status-bar": "~3.0.9",
@@ -43,7 +43,7 @@
     "react-native-toast-message": "^2.3.0",
     "tailwindcss": "^3.4.18",
     "typescript": "~5.9.2",
-    "zod": "^4.1.13",
+    "zod": "^3.23.8",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
