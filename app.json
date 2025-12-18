@@ -50,6 +50,9 @@
             "DEFAULT"
           ]
         }
+      ],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -65,6 +68,11 @@
           "cameraPermission": "The app accesses your camera to let you take photos."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c9d0274e-efcc-4715-b26b-bd3d7511cab1"
+      }
+    }
   }
 }

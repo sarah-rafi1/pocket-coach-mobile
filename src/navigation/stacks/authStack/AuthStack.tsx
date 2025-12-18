@@ -1,5 +1,5 @@
 import { createStackNavigator } from '@react-navigation/stack';
-import { SplashScreen, HomeScreen, AuthScreen, PasswordRecoveryScreen, ProfileCompletionScreen, ProfileSuccessScreen } from '../../../screens';
+import { SplashScreen, HomeScreen, AuthScreen, FeedScreen, PasswordRecoveryScreen, ProfileCompletionScreen, ProfileSuccessScreen } from '../../../screens';
 import { AppRoutes } from '../../../types';
 
 const Stack = createStackNavigator<AppRoutes>();
@@ -45,6 +45,13 @@ export function AuthStack() {
       <Stack.Screen
         name="password-recovery-screen"
         component={PasswordRecoveryScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="feed-screen"
+        component={FeedScreen}
         options={{
           headerShown: false,
         }}

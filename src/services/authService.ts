@@ -12,6 +12,7 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import config from "../config.json";
 import { storeCognitoTokens, retrieveCognitoTokens, removeCognitoTokens, isTokenValid, CognitoTokens } from "../utils/AsyncStorageApis";
+import { cleanErrorMessage } from "../utils/errorUtils";
 
 // Note: crypto polyfill is handled by react-native-get-random-values in index.ts
 
@@ -362,16 +363,9 @@ export const signIn = async (email: string, password: string): Promise<AuthToken
   } catch (error: any) {
     console.error("Error signing in:", error);
     
-    // Handle specific Cognito errors
-    if (error.name === "NotAuthorizedException") {
-      throw new Error("Incorrect username or password");
-    } else if (error.name === "UserNotConfirmedException") {
-      throw new Error("Please verify your email address");
-    } else if (error.name === "UserNotFoundException") {
-      throw new Error("No account found with this email");
-    }
-    
-    throw new Error(error.message || "Sign in failed");
+    // Use the error cleaning utility to provide user-friendly messages
+    const cleanMessage = cleanErrorMessage(error);
+    throw new Error(cleanMessage);
   }
 };
 
@@ -428,16 +422,9 @@ export const signUp = async (email: string, password: string): Promise<{ userSub
   } catch (error: any) {
     console.error("Error signing up:", error);
     
-    // Handle specific Cognito errors
-    if (error.name === "UsernameExistsException") {
-      throw new Error("An account with this email already exists");
-    } else if (error.name === "InvalidPasswordException") {
-      throw new Error("Password does not meet requirements");
-    } else if (error.name === "InvalidParameterException") {
-      throw new Error("Invalid email format");
-    }
-    
-    throw new Error(error.message || "Sign up failed");
+    // Use the error cleaning utility to provide user-friendly messages
+    const cleanMessage = cleanErrorMessage(error);
+    throw new Error(cleanMessage);
   }
 };
 
@@ -479,16 +466,9 @@ export const confirmSignUp = async (username: string, code: string, password?: s
   } catch (error: any) {
     console.error("Error confirming sign up:", error);
     
-    // Handle specific Cognito errors
-    if (error.name === "CodeMismatchException") {
-      throw new Error("Invalid confirmation code");
-    } else if (error.name === "ExpiredCodeException") {
-      throw new Error("Confirmation code has expired");
-    } else if (error.name === "UserNotFoundException") {
-      throw new Error("User not found");
-    }
-    
-    throw new Error(error.message || "Email confirmation failed");
+    // Use the error cleaning utility to provide user-friendly messages
+    const cleanMessage = cleanErrorMessage(error);
+    throw new Error(cleanMessage);
   }
 };
 
@@ -503,16 +483,9 @@ export const resendConfirmationCode = async (username: string): Promise<void> =>
   } catch (error: any) {
     console.error("Error resending confirmation code:", error);
     
-    // Handle specific Cognito errors
-    if (error.name === "UserNotFoundException") {
-      throw new Error("User not found");
-    } else if (error.name === "InvalidParameterException") {
-      throw new Error("User is already confirmed");
-    } else if (error.name === "LimitExceededException") {
-      throw new Error("Too many requests. Please wait before requesting again");
-    }
-    
-    throw new Error(error.message || "Failed to resend confirmation code");
+    // Use the error cleaning utility to provide user-friendly messages
+    const cleanMessage = cleanErrorMessage(error);
+    throw new Error(cleanMessage);
   }
 };
 

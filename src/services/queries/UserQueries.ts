@@ -45,18 +45,44 @@ export const useUserProfileQuery = (accessToken: string | null, enabled: boolean
 };
 
 export const useInterestsQuery = () => {
-  const { setLoading, setError } = useApiStore();
-
   return useQuery({
     queryKey: ['interests'],
-    queryFn: () => userApi.getInterests(),
-    onError: (error: any) => {
-      console.error('Interests fetch failed:', error);
-      const message = error?.message || 'Failed to fetch interests.';
-      setError(message);
+    queryFn: async () => {
+      try {
+        const interests = await userApi.getInterests();
+        // Ensure we always return an array, even if the API fails
+        return Array.isArray(interests) ? interests : [];
+      } catch (error) {
+        console.error('Interests fetch failed:', error);
+        // Return empty array instead of throwing to prevent component crashes
+        return [];
+      }
     },
     retry: 2, // Retry up to 2 times for interests
     staleTime: 10 * 60 * 1000, // Consider interests data fresh for 10 minutes
-    cacheTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+    // Provide default data to prevent undefined issues
+    initialData: [],
+  });
+};
+
+export const useCheckUsernameQuery = (username: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['checkUsername', username],
+    queryFn: async () => {
+      if (!username || username.length < 3) {
+        return { 
+          success: true, 
+          timestamp: new Date().toISOString(),
+          data: { available: true, message: '' }
+        };
+      }
+      return await userApi.checkUsername(username);
+    },
+    enabled: enabled && !!username && username.length >= 3, // Only run if username is at least 3 chars
+    retry: 1, // Only retry once for username checks
+    staleTime: 30 * 1000, // Consider username data fresh for 30 seconds
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
+    refetchOnWindowFocus: false, // Don't refetch when window gains focus
   });
 };

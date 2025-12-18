@@ -6,19 +6,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { ReusableButton, ReusableInput, BackArrowButton, InfoModal } from '../../components';
 import { fonts } from '../../constants/typography';
 import { AppRoutes } from '../../types';
-import { useOnboardingMutation, useInterestsQuery } from '../../hooks';
+import { useOnboardingMutation, useInterestsQuery, useUsernameValidation } from '../../hooks';
 import { OnboardingPayload } from '../../services/apis/OnboardingApis';
 import { retrieveCognitoTokens } from '../../utils/AsyncStorageApis';
 import { 
   profileStep1Schema, 
   profileStep2Schema, 
+  onboardingSchema,
   validateForm, 
-  validateField,
-  validateUsernameField,
   validateDisplayNameField,
-  validateBioField,
-  ProfileStep1FormData,
-  ProfileStep2FormData 
+  validateBioField
 } from '../../utils/validationSchemas';
 import { User, TickIcon } from '../../../assets/icons';
 
@@ -35,6 +32,17 @@ export function ProfileCompletionScreen() {
   const navigation = useNavigation<ProfileCompletionNavigationProp>();
   const onboardingMutation = useOnboardingMutation();
   const { data: interests, isLoading: interestsLoading, error: interestsError } = useInterestsQuery();
+  
+  // Debug logging for interests
+  React.useEffect(() => {
+    console.log('🔍 [DEBUG] Interests data:', {
+      interests,
+      isLoading: interestsLoading,
+      error: interestsError,
+      isArray: Array.isArray(interests),
+      length: interests?.length
+    });
+  }, [interests, interestsLoading, interestsError]);
   const [currentStep, setCurrentStep] = useState(1);
   const [profileData, setProfileData] = useState<ProfileData>({
     username: '',
@@ -52,8 +60,11 @@ export function ProfileCompletionScreen() {
   const [usernameError, setUsernameError] = useState('');
   const [displayNameError, setDisplayNameError] = useState('');
 
-  // Get available interests from API
-  const availableInterests = interests || [];
+  // Username validation with API check
+  const usernameValidation = useUsernameValidation(profileData.username);
+
+  // Get available interests from API with proper fallback
+  const availableInterests = Array.isArray(interests) ? interests : [];
 
 
   // Function to get emoji based on interest value
@@ -100,44 +111,10 @@ export function ProfileCompletionScreen() {
     setShowImagePickerModal(true);
   };
 
-  const openCamera = async () => {
-    const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-    
-    if (cameraPermission.granted === false) {
-      setModalContent({
-        title: 'Permission Required',
-        message: 'Permission to access camera is required!',
-        action: () => setShowErrorModal(false)
-      });
-      setShowErrorModal(true);
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      console.log('📸 [CAMERA] Selected image:', {
-        uri: result.assets[0].uri,
-        type: result.assets[0].type,
-        width: result.assets[0].width,
-        height: result.assets[0].height
-      });
-      
-      setProfileData(prev => ({ 
-        ...prev, 
-        profileImage: result.assets[0].uri
-      }));
-    }
-  };
 
   const openGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -161,11 +138,8 @@ export function ProfileCompletionScreen() {
   const handleUsernameChange = (text: string) => {
     setProfileData(prev => ({ ...prev, username: text }));
     
-    // Real-time validation with Zod
-    const validation = validateUsernameField(text);
-    if (!validation.isValid) {
-      setUsernameError(validation.error || '');
-    } else {
+    // Clear local validation error - API validation will handle the rest
+    if (usernameError && !text) {
       setUsernameError('');
     }
   };
@@ -196,6 +170,18 @@ export function ProfileCompletionScreen() {
   };
 
   const validateStep1 = () => {
+    // Check username availability first
+    if (usernameValidation.error || (usernameValidation.isAvailable === false)) {
+      setUsernameError(usernameValidation.error || 'Username is not available');
+      return false;
+    }
+
+    // If username validation is still in progress, don't allow proceed
+    if (usernameValidation.isValidating) {
+      setUsernameError('Please wait while checking username availability');
+      return false;
+    }
+
     const step1Data = {
       username: profileData.username,
       displayName: profileData.displayName,
@@ -262,7 +248,7 @@ export function ProfileCompletionScreen() {
           message: 'Session expired. Please log in again.',
           action: () => {
             setShowErrorModal(false);
-            navigation.navigate('login-screen');
+            navigation.navigate('auth-screen', { mode: 'login' });
           }
         });
         setShowErrorModal(true);
@@ -435,10 +421,28 @@ export function ProfileCompletionScreen() {
             value={profileData.username}
             onChangeText={handleUsernameChange}
             leftIcon={<User />}
-            error={usernameError}
-            hasError={!!usernameError}
+            error={usernameValidation.error || usernameError}
+            hasError={!!(usernameValidation.error || usernameError)}
             autoCapitalize="none"
           />
+          {/* Username validation feedback */}
+          {profileData.username.length >= 3 && (
+            <View className="mt-2">
+              {usernameValidation.isValidating ? (
+                <Text className="text-yellow-400 text-sm" style={{ fontFamily: fonts.SharpSansRegular }}>
+                  🔄 Checking availability...
+                </Text>
+              ) : usernameValidation.isAvailable === true ? (
+                <Text className="text-green-400 text-sm" style={{ fontFamily: fonts.SharpSansRegular }}>
+                  ✅ Username is available
+                </Text>
+              ) : usernameValidation.isAvailable === false ? (
+                <Text className="text-red-400 text-sm" style={{ fontFamily: fonts.SharpSansRegular }}>
+                  ❌ Username is already taken
+                </Text>
+              ) : null}
+            </View>
+          )}
         </View>
 
         {/* Display Name Field */}
@@ -526,8 +530,11 @@ export function ProfileCompletionScreen() {
               <Text className="text-red-400 text-base" style={{ fontFamily: fonts.SharpSansRegular }}>
                 Failed to load interests. Please try again.
               </Text>
+              <Text className="text-red-300 text-sm mt-2" style={{ fontFamily: fonts.SharpSansRegular }}>
+                Error: {interestsError?.toString()}
+              </Text>
             </View>
-          ) : (
+          ) : availableInterests.length > 0 ? (
             availableInterests.map((interest) => {
               const isSelected = selectedInterests.includes(interest.value);
               return (
@@ -563,6 +570,12 @@ export function ProfileCompletionScreen() {
                 </TouchableOpacity>
               );
             })
+          ) : (
+            <View className="w-full items-center py-8">
+              <Text className="text-gray-400 text-base" style={{ fontFamily: fonts.SharpSansRegular }}>
+                No interests available at the moment.
+              </Text>
+            </View>
           )}
         </View>
       </ScrollView>

@@ -1,8 +1,7 @@
-import { api } from '../../lib/api';
 import { API_BASE_URL } from '../../config/env';
 
 // User API interfaces
-export interface UserProfile {
+export interface UserProfileData {
   id: string;
   username?: string;
   display_name?: string;
@@ -11,14 +10,47 @@ export interface UserProfile {
   bio?: string;
   interest_slugs?: string[];
   profile_image?: string;
+  avatar_url?: string;
+  account_status?: string;
+  is_onboarding_complete?: boolean;
+  is_verified?: boolean;
+  is_private?: boolean;
+  role?: string;
+  stripe_connected?: boolean;
+  country_code?: string | null;
+  date_of_birth?: string | null;
+  language?: string;
+  timezone?: string | null;
+  last_login_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface UserProfile {
+  success: boolean;
+  timestamp: string;
+  data: UserProfileData;
 }
 
 // Interest API interfaces
 export interface Interest {
   label: string;
   value: string;
+}
+
+export interface InterestsApiResponse {
+  success: boolean;
+  timestamp: string;
+  data: Interest[];
+}
+
+export interface CheckUsernameResponse {
+  success: boolean;
+  timestamp: string;
+  data: {
+    available: boolean;
+    message?: string;
+  };
 }
 
 // User API functions
@@ -145,12 +177,13 @@ export const userApi = {
       timestamp: new Date().toISOString()
     });
     
-    const response = await fetch(`${API_BASE_URL}/interests`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/interests`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
 
     console.log('📡 [API RESPONSE] =>', {
       status: response.status,
@@ -171,12 +204,90 @@ export const userApi = {
       throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const apiResponse: InterestsApiResponse = await response.json();
     console.log('✅ [API SUCCESS] => GET /interests', {
-      responseData: data,
-      interestCount: Array.isArray(data) ? data.length : 'unknown',
+      responseData: apiResponse,
+      success: apiResponse.success,
+      interestCount: Array.isArray(apiResponse.data) ? apiResponse.data.length : 'unknown',
       timestamp: new Date().toISOString()
     });
-    return data as Interest[];
+    
+    // Handle the expected API response structure
+    if (apiResponse && apiResponse.success && Array.isArray(apiResponse.data)) {
+      return apiResponse.data as Interest[];
+    }
+    
+    // Fallback handling for different response structures
+    const data = apiResponse as any;
+    if (Array.isArray(data)) {
+      return data as Interest[];
+    } else if (data && typeof data === 'object' && Array.isArray(data.interests)) {
+      return data.interests as Interest[];
+    } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+      return data.data as Interest[];
+    } else {
+      console.warn('⚠️ [API WARNING] => getInterests returned unexpected structure:', apiResponse);
+      return [] as Interest[];
+    }
+    } catch (error) {
+      console.error('❌ [API ERROR] => getInterests failed:', error);
+      throw error;
+    }
+  },
+
+  checkUsername: async (username: string): Promise<CheckUsernameResponse> => {
+    console.log('🚀 [API CALL] => POST /users/check-username');
+    console.log('📦 [REQUEST DETAILS] =>', {
+      url: `${API_BASE_URL}/users/check-username`,
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: { username },
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/check-username`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      });
+
+      console.log('📡 [API RESPONSE] =>', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url,
+        timestamp: new Date().toISOString()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [API ERROR] =>', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          timestamp: new Date().toISOString()
+        });
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const apiResponse: CheckUsernameResponse = await response.json();
+      console.log('✅ [API SUCCESS] => POST /users/check-username', {
+        responseData: apiResponse,
+        available: apiResponse.data.available,
+        timestamp: new Date().toISOString()
+      });
+
+      return apiResponse;
+    } catch (error) {
+      console.error('❌ [API ERROR] => checkUsername failed:', error);
+      throw error;
+    }
   },
 };
