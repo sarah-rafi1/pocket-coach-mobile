@@ -29,20 +29,13 @@ interface ProfileData {
 }
 
 export function ProfileCompletionScreen() {
+  console.log('🎯 [PROFILE COMPLETION] Component rendering...');
+  
   const navigation = useNavigation<ProfileCompletionNavigationProp>();
   const onboardingMutation = useOnboardingMutation();
-  const { data: interests, isLoading: interestsLoading, error: interestsError } = useInterestsQuery();
   
-  // Debug logging for interests
-  React.useEffect(() => {
-    console.log('🔍 [DEBUG] Interests data:', {
-      interests,
-      isLoading: interestsLoading,
-      error: interestsError,
-      isArray: Array.isArray(interests),
-      length: interests?.length
-    });
-  }, [interests, interestsLoading, interestsError]);
+  console.log('🎯 [PROFILE COMPLETION] About to call useInterestsQuery...');
+  const { data: interests, isLoading: interestsLoading, error: interestsError } = useInterestsQuery();
   const [currentStep, setCurrentStep] = useState(1);
   const [profileData, setProfileData] = useState<ProfileData>({
     username: '',
@@ -63,8 +56,16 @@ export function ProfileCompletionScreen() {
   // Username validation with API check
   const usernameValidation = useUsernameValidation(profileData.username);
 
-  // Get available interests from API with proper fallback
-  const availableInterests = Array.isArray(interests) ? interests : [];
+  // Simply use interests from React Query - no fallback needed
+  console.log('🔄 [INTERESTS DATA]:', {
+    interests,
+    isArray: Array.isArray(interests),
+    length: interests?.length,
+    isLoading: interestsLoading,
+    error: interestsError,
+    stringified: JSON.stringify(interests),
+    type: typeof interests
+  });
 
 
   // Function to get emoji based on interest value
@@ -514,7 +515,7 @@ export function ProfileCompletionScreen() {
         </Text>
         
         <Text className="text-gray-400 text-base text-center mb-8" style={{ fontFamily: fonts.SharpSansRegular }}>
-          Select your interests to personalize your experience.
+          Select your interests to personalize your experience
         </Text>
 
         {/* Interests Grid */}
@@ -530,12 +531,9 @@ export function ProfileCompletionScreen() {
               <Text className="text-red-400 text-base" style={{ fontFamily: fonts.SharpSansRegular }}>
                 Failed to load interests. Please try again.
               </Text>
-              <Text className="text-red-300 text-sm mt-2" style={{ fontFamily: fonts.SharpSansRegular }}>
-                Error: {interestsError?.toString()}
-              </Text>
             </View>
-          ) : availableInterests.length > 0 ? (
-            availableInterests.map((interest) => {
+          ) : interests && Array.isArray(interests) && interests.length > 0 ? (
+            interests.map((interest) => {
               const isSelected = selectedInterests.includes(interest.value);
               return (
                 <TouchableOpacity
@@ -573,7 +571,7 @@ export function ProfileCompletionScreen() {
           ) : (
             <View className="w-full items-center py-8">
               <Text className="text-gray-400 text-base" style={{ fontFamily: fonts.SharpSansRegular }}>
-                No interests available at the moment.
+                No interests available
               </Text>
             </View>
           )}

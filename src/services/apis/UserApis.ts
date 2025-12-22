@@ -1,4 +1,5 @@
-import { API_BASE_URL } from '../../config/env';
+import axiosInstance from './index';
+import { retrieveCognitoTokens } from '../../utils/AsyncStorageApis';
 
 // User API interfaces
 export interface UserProfileData {
@@ -34,8 +35,9 @@ export interface UserProfile {
 
 // Interest API interfaces
 export interface Interest {
+  id?: string; // UUID identifier
   label: string;
-  value: string;
+  value: string; // slug/name
 }
 
 export interface InterestsApiResponse {
@@ -55,238 +57,158 @@ export interface CheckUsernameResponse {
 
 // User API functions
 export const userApi = {
-  getUserProfile: async (accessToken: string) => {
-    console.log('🚀 [API CALL] => GET /users/me');
-    console.log('📦 [REQUEST DETAILS] =>', {
-      url: `${API_BASE_URL}/users/me`,
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken.substring(0, 20)}...`,
-        'Accept': 'application/json',
-      },
-      timestamp: new Date().toISOString()
-    });
-    
-    const response = await fetch(`${API_BASE_URL}/users/me`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json',
-      },
-    });
-
-    console.log('📡 [API RESPONSE] =>', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      url: response.url,
-      timestamp: new Date().toISOString()
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ [API ERROR] =>', {
-        status: response.status,
-        statusText: response.statusText,
-        errorData: errorData,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+  getUserProfile: async () => {
+    try {
+      const response = await axiosInstance.get('/users/me');
+      return response.data as UserProfile;
+    } catch (error) {
+      console.error('Error checking user profile:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    console.log('✅ [API SUCCESS] => GET /users/me', {
-      responseData: data,
-      timestamp: new Date().toISOString()
-    });
-    return data as UserProfile;
   },
 
-  sendVerificationCode: async (email: string, accessToken?: string) => {
-    console.log('🚀 [API CALL] => POST /auth/send-verification-code');
-    
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken.substring(0, 20)}...`;
+  sendVerificationCode: async (email: string) => {
+    try {
+      const response = await axiosInstance.post('/auth/send-verification-code', { email });
+      return response.data;
+    } catch (error) {
+      console.error('❌ [API ERROR] => sendVerificationCode failed:', error);
+      throw error;
     }
-
-    console.log('📦 [REQUEST PAYLOAD] =>', {
-      url: `${API_BASE_URL}/auth/send-verification-code`,
-      method: 'POST',
-      headers: headers,
-      payload: { email },
-      timestamp: new Date().toISOString()
-    });
-
-    const requestHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (accessToken) {
-      requestHeaders['Authorization'] = `Bearer ${accessToken}`;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/auth/send-verification-code`, {
-      method: 'POST',
-      headers: requestHeaders,
-      body: JSON.stringify({ email }),
-    });
-
-    console.log('📡 [API RESPONSE] =>', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      url: response.url,
-      timestamp: new Date().toISOString()
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ [API ERROR] =>', {
-        status: response.status,
-        statusText: response.statusText,
-        errorData: errorData,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('✅ [API SUCCESS] => POST /auth/send-verification-code', {
-      responseData: data,
-      timestamp: new Date().toISOString()
-    });
-    return data;
   },
 
   getInterests: async () => {
-    console.log('🚀 [API CALL] => GET /interests');
-    console.log('📦 [REQUEST DETAILS] =>', {
-      url: `${API_BASE_URL}/interests`,
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-      timestamp: new Date().toISOString()
-    });
-    
     try {
-      const response = await fetch(`${API_BASE_URL}/interests`, {
+      const baseURL = process.env.API_BASE_URL || 'http://34.201.245.56:3000';
+      const fullURL = `${baseURL}/interests`;
+      
+      console.log('🚀 [STARTING INTERESTS API CALL]', {
+        url: fullURL,
+        method: 'GET (direct fetch - no auth)',
+        timestamp: new Date().toISOString(),
+        baseURL: process.env.API_BASE_URL,
+        fullPath: `/interests`
+      });
+      
+      // Use direct fetch without authentication since interests API doesn't require auth
+      const response = await fetch(fullURL, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
       });
-
-    console.log('📡 [API RESPONSE] =>', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      url: response.url,
-      timestamp: new Date().toISOString()
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ [API ERROR] =>', {
+      
+      console.log('📡 [FULL RESPONSE]:', {
         status: response.status,
         statusText: response.statusText,
-        errorData: errorData,
+        ok: response.ok,
+        url: response.url,
+        contentType: response.headers.get('content-type'),
         timestamp: new Date().toISOString()
       });
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const apiResponse: InterestsApiResponse = await response.json();
-    console.log('✅ [API SUCCESS] => GET /interests', {
-      responseData: apiResponse,
-      success: apiResponse.success,
-      interestCount: Array.isArray(apiResponse.data) ? apiResponse.data.length : 'unknown',
-      timestamp: new Date().toISOString()
-    });
-    
-    // Handle the expected API response structure
-    if (apiResponse && apiResponse.success && Array.isArray(apiResponse.data)) {
-      return apiResponse.data as Interest[];
-    }
-    
-    // Fallback handling for different response structures
-    const data = apiResponse as any;
-    if (Array.isArray(data)) {
-      return data as Interest[];
-    } else if (data && typeof data === 'object' && Array.isArray(data.interests)) {
-      return data.interests as Interest[];
-    } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
-      return data.data as Interest[];
-    } else {
-      console.warn('⚠️ [API WARNING] => getInterests returned unexpected structure:', apiResponse);
-      return [] as Interest[];
-    }
-    } catch (error) {
-      console.error('❌ [API ERROR] => getInterests failed:', error);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [HTTP ERROR]:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      }
+      
+      const responseText = await response.text();
+      console.log('📄 [RAW RESPONSE TEXT]:', responseText.substring(0, 500) + '...');
+      
+      let apiResponse;
+      try {
+        apiResponse = JSON.parse(responseText);
+        console.log('✅ [JSON PARSED SUCCESSFULLY]');
+      } catch (parseError) {
+        console.error('❌ [JSON PARSE ERROR]:', {
+          error: parseError,
+          responseText: responseText.substring(0, 200)
+        });
+        throw new Error(`Failed to parse JSON response: ${parseError}`);
+      }
+      
+      console.log('🔍 [DEBUG] Parsed API Response:', {
+        responseType: typeof apiResponse,
+        hasData: 'data' in apiResponse,
+        hasSuccess: 'success' in apiResponse,
+        successValue: apiResponse.success,
+        dataType: typeof apiResponse.data,
+        isDataArray: Array.isArray(apiResponse.data),
+        dataLength: Array.isArray(apiResponse.data) ? apiResponse.data.length : 'N/A',
+        firstDataItem: Array.isArray(apiResponse.data) ? apiResponse.data[0] : 'N/A'
+      });
+      
+      // Handle the expected API response structure
+      if (apiResponse && apiResponse.success === true && Array.isArray(apiResponse.data)) {
+        console.log('✅ [SUCCESS PATH] Found expected structure with', apiResponse.data.length, 'interests');
+        console.log('📝 [FIRST 3 INTERESTS]:', apiResponse.data.slice(0, 3));
+        return apiResponse.data as Interest[];
+      }
+      
+      console.warn('⚠️ [UNEXPECTED STRUCTURE] API response structure not as expected:', {
+        fullResponse: apiResponse,
+        keys: Object.keys(apiResponse || {}),
+        type: typeof apiResponse
+      });
+      
+      // Fallback handling for different response structures
+      const data = apiResponse as any;
+      if (Array.isArray(data)) {
+        console.log('✅ [FALLBACK 1] Response is direct array with', data.length, 'items');
+        return data as Interest[];
+      } else if (data && typeof data === 'object' && Array.isArray(data.interests)) {
+        console.log('✅ [FALLBACK 2] Found interests array with', data.interests.length, 'items');
+        return data.interests as Interest[];
+      } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        console.log('✅ [FALLBACK 3] Found data array with', data.data.length, 'items');
+        return data.data as Interest[];
+      } else {
+        console.error('❌ [NO FALLBACK MATCHED] Returning empty array');
+        return [] as Interest[];
+      }
+    } catch (error: any) {
+      console.error('❌ [API ERROR] getInterests failed with full context:', {
+        error: error,
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        timestamp: new Date().toISOString()
+      });
       throw error;
     }
   },
 
   checkUsername: async (username: string): Promise<CheckUsernameResponse> => {
-    console.log('🚀 [API CALL] => POST /users/check-username');
-    console.log('📦 [REQUEST DETAILS] =>', {
-      url: `${API_BASE_URL}/users/check-username`,
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: { username },
-      timestamp: new Date().toISOString()
-    });
-
     try {
-      const response = await fetch(`${API_BASE_URL}/users/check-username`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username }),
+      console.log('🚀 [CHECK USERNAME] Starting API call with AUTH TOKEN for:', username);
+      
+      // Verify we have tokens before making the call
+      const cognitoTokens = await retrieveCognitoTokens();
+      console.log('🔐 [CHECK USERNAME - TOKEN CHECK]:', {
+        hasTokens: !!cognitoTokens,
+        hasAccessToken: !!cognitoTokens?.access_token,
+        tokenPreview: cognitoTokens?.access_token?.substring(0, 50) + '...' || 'none'
       });
-
-      console.log('📡 [API RESPONSE] =>', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        url: response.url,
-        timestamp: new Date().toISOString()
+      
+      // Use axios instance which automatically adds auth token via interceptor
+      const response = await axiosInstance.post('/users/check-username', { username });
+      console.log('✅ [CHECK USERNAME] Success with token:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ [CHECK USERNAME ERROR] Full details:', {
+        error,
+        message: error?.message,
+        status: error?.response?.status,
+        responseData: error?.response?.data,
+        username,
+        note: 'This API requires authentication token'
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ [API ERROR] =>', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData: errorData,
-          timestamp: new Date().toISOString()
-        });
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const apiResponse: CheckUsernameResponse = await response.json();
-      console.log('✅ [API SUCCESS] => POST /users/check-username', {
-        responseData: apiResponse,
-        available: apiResponse.data.available,
-        timestamp: new Date().toISOString()
-      });
-
-      return apiResponse;
-    } catch (error) {
-      console.error('❌ [API ERROR] => checkUsername failed:', error);
       throw error;
     }
   },

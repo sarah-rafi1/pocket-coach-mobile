@@ -76,12 +76,27 @@ export const useUsernameValidation = (username: string, debounceMs: number = 500
     }
 
     if (error) {
-      setValidationState({
-        isValidating: false,
-        isAvailable: null,
-        error: 'Unable to check username availability',
-        message: ''
-      });
+      console.log('🔍 [USERNAME VALIDATION ERROR]:', error);
+      // If we get a 401 "User not found" error, assume username validation isn't available yet
+      // This happens during profile completion when user doesn't exist in DB yet
+      const isUserNotFoundError = error?.message?.includes('User not found') || 
+                                  (error as any)?.response?.status === 401;
+      
+      if (isUserNotFoundError) {
+        setValidationState({
+          isValidating: false,
+          isAvailable: null,
+          error: '',
+          message: 'Username validation unavailable during profile setup'
+        });
+      } else {
+        setValidationState({
+          isValidating: false,
+          isAvailable: null,
+          error: 'Unable to check username availability',
+          message: ''
+        });
+      }
       return;
     }
 

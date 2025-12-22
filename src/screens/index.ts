@@ -5,3 +5,7 @@ export * from "./feedScreen";
 export * from "./passwordRecoveryScreen";
 export * from "./profileCompletionScreen";
 export * from "./profileSuccessScreen";
+export * from "./groupsScreen";
+export * from "./chatScreen";
+export * from "./profileScreen";
+export * from "./createScreen";

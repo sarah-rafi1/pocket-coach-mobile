@@ -103,7 +103,7 @@ export default function Navigator() {
     <NavigationContainer onReady={onLayoutRootView}>
       <>
         <StatusBar barStyle={'light-content'} backgroundColor="transparent" translucent />
-        <AuthStack />
+        {user ? <MainTabs /> : <AuthStack />}
       </>
     </NavigationContainer>
   );

@@ -7,6 +7,7 @@ import {
 } from '../../../services/authService';
 import { userApi } from '../../../services/apis/UserApis';
 import useAuthStore from '../../../store/useAuthStore';
+import { storeCognitoTokens } from '../../../utils/AsyncStorageApis';
 import { AppRoutes } from '../../../types';
 
 type AuthScreenNavigationProp = StackNavigationProp<AppRoutes, 'auth-screen'>;
@@ -71,12 +72,33 @@ export function useSocialAuth({
       }
 
       if (isLogin) {
+        console.log('🔐 [FULL ACCESS TOKEN RECEIVED - SOCIAL LOGIN] =>', {
+          access_token: tokens.access_token,
+          access_token_length: tokens.access_token?.length || 0,
+          refresh_token: tokens.refresh_token ? `${tokens.refresh_token.substring(0, 50)}...` : 'none',
+          id_token: tokens.id_token ? `${tokens.id_token.substring(0, 50)}...` : 'none',
+          token_type: 'Bearer',
+          expires_in: tokens.expires_in || 3600,
+          timestamp: new Date().toISOString()
+        });
+
+        // Store tokens first so the API interceptor can use them
+        if (tokens.access_token && tokens.refresh_token) {
+          await storeCognitoTokens({
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            id_token: tokens.id_token,
+            token_type: 'Bearer',
+            expires_in: tokens.expires_in || 3600
+          });
+        }
+        
         try {
-          const userProfile = await userApi.getUserProfile(tokens.access_token || '');
+          const userProfile = await userApi.getUserProfile();
           
-          if (!userProfile.username || !userProfile.display_name || !userProfile.interest_slugs || userProfile.interest_slugs.length === 0) {
-            if (!userProfile.email_verified) {
-              await userApi.sendVerificationCode(userEmail, tokens.access_token);
+          if (!userProfile.data.username || !userProfile.data.display_name || !userProfile.data.interest_slugs || userProfile.data.interest_slugs.length === 0) {
+            if (!userProfile.data.email_verified) {
+              await userApi.sendVerificationCode(userEmail);
               setModalContent({
                 title: "Email Verification Required",
                 message: "Please verify your email address to continue.",
@@ -87,7 +109,7 @@ export function useSocialAuth({
               });
               setShowSuccessModal(true);
             } else {
-              setUser({ id: userProfile.id || "google_user", email: userEmail, firstName: userEmail.split('@')[0] });
+              setUser({ id: userProfile.data.id || "google_user", email: userEmail, firstName: userEmail.split('@')[0] });
               setModalContent({
                 title: "Complete Your Profile",
                 message: "Please complete your profile to continue.",
@@ -99,7 +121,7 @@ export function useSocialAuth({
               setShowSuccessModal(true);
             }
           } else {
-            setUser({ id: userProfile.id, email: userEmail, firstName: userProfile.display_name.split(' ')[0] || userEmail.split('@')[0] });
+            setUser({ id: userProfile.data.id, email: userEmail, firstName: userProfile.data.display_name?.split(' ')[0] || userEmail.split('@')[0] });
             setModalContent({
               title: "Success",
               message: "Signed in with Google successfully!",
@@ -108,26 +130,24 @@ export function useSocialAuth({
             setShowSuccessModal(true);
           }
         } catch (profileError: any) {
-          if (profileError.message?.includes('404') || profileError.message?.includes('not found')) {
-            try {
-              await userApi.sendVerificationCode(userEmail, tokens.access_token);
-              setModalContent({
-                title: "Welcome!",
-                message: "Please verify your email address to complete your account setup.",
-                action: () => {
-                  setShowSuccessModal(false);
-                  navigation.navigate('password-recovery-screen', { mode: 'email-verification', email: userEmail, fromLogin: false });
-                }
-              });
-              setShowSuccessModal(true);
-            } catch (verificationError: any) {
-              setModalContent({
-                title: "Error",
-                message: "Failed to send verification code. Please try again.",
-                action: () => setShowErrorModal(false)
-              });
-              setShowErrorModal(true);
-            }
+          // Handle user not found in database (401) or 404 errors
+          if (
+            profileError.message?.includes('404') || 
+            profileError.message?.includes('not found') ||
+            profileError.message?.includes('User not found in database') ||
+            profileError.response?.status === 401
+          ) {
+            console.log('🚀 [USER NOT FOUND - SOCIAL] => Navigating to ProfileCompletionScreen');
+            setUser({ id: "temp_social_user", email: userEmail, firstName: userEmail.split('@')[0] });
+            setModalContent({
+              title: "Complete Your Profile",
+              message: "Please complete your profile to continue.",
+              action: () => {
+                setShowSuccessModal(false);
+                navigation.navigate('profile-completion-screen');
+              }
+            });
+            setShowSuccessModal(true);
           } else {
             setModalContent({
               title: "Error",

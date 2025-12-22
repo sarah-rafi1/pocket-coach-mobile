@@ -80,25 +80,23 @@ export function SocialLoginButtons({
         </TouchableOpacity>
 
         {/* Apple */}
-        {Platform.OS === 'ios' && (
-          <TouchableOpacity 
-            onPress={onAppleAuth}
-            disabled={disabled || socialLoading !== null}
-            style={{ 
-              width: 56, 
-              height: 56, 
-              borderRadius: 28, 
-              alignItems: 'center', 
-              justifyContent: 'center' 
-            }}
-          >
-            {socialLoading === "apple" ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <AppleIcon />
-            )}
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity 
+          onPress={onAppleAuth}
+          disabled={disabled || socialLoading !== null}
+          style={{ 
+            width: Platform.OS === 'android' ? 48 : 56, 
+            height: Platform.OS === 'android' ? 48 : 56, 
+            borderRadius: 28, 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}
+        >
+          {socialLoading === "apple" ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <AppleIcon />
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );

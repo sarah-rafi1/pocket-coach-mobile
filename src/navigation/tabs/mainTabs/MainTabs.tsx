@@ -1,33 +1,123 @@
+import React from 'react';
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { HomeStack } from "../../stacks";
+import { View, Platform } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppRoutes } from "../../../types";
-import { HomeSelectedIcon, HomeUnselectedIcon } from "../../../../assets/icons";
+import { 
+  FeedIcon, 
+  GroupsIcon, 
+  PlusIcon, 
+  ChatIcon, 
+  ProfileIcon 
+} from "../../../../assets/icons";
+import { 
+  FeedScreen, 
+  GroupsScreen, 
+  CreateScreen, 
+  ChatScreen, 
+  ProfileScreen 
+} from "../../../screens";
 
 const Tab = createBottomTabNavigator<AppRoutes>();
 
 export function MainTabs() {
-
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => {
-        return {
-          tabBarIcon: ({ color, size, focused }) => {
-            let icon;
-
-            if (route.name === "home") {
-              icon = focused ? <HomeSelectedIcon /> : <HomeUnselectedIcon />;
-            }
-            return icon;
-          },
-        };
-      }}>
+      screenOptions={({ route }) => ({
+        tabBarStyle: {
+          backgroundColor: '#1F2937',
+          borderTopWidth: 0,
+          height: Platform.OS === 'android' ? 65 + insets.bottom : 85,
+          paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 8) : Math.max(insets.bottom, 20),
+          paddingTop: 8,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: Platform.OS === 'android' ? 8 : 0,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        sceneContainerStyle: {
+          paddingBottom: Platform.OS === 'android' ? 65 + insets.bottom : 85,
+        },
+        tabBarActiveTintColor: '#3B82F6',
+        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+          marginTop: 4,
+        },
+        tabBarIcon: ({ focused }) => {
+          const iconSize = 24;
+          
+          if (route.name === 'Feed') {
+            return <FeedIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+          } else if (route.name === 'Groups') {
+            return <GroupsIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+          } else if (route.name === 'Create') {
+            return (
+              <View style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                backgroundColor: '#3B82F6',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginTop: -8,
+              }}>
+                <PlusIcon color="#FFFFFF" size={24} />
+              </View>
+            );
+          } else if (route.name === 'Chat') {
+            return <ChatIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+          } else if (route.name === 'Profile') {
+            return <ProfileIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+          }
+          return null;
+        },
+        headerShown: false,
+      })}
+    >
       <Tab.Screen
-        name="home"
-        component={HomeStack}
+        name="Feed"
+        component={FeedScreen}
         options={{
-          tabBarLabel: "Home",
-          title: "Home",
+          tabBarLabel: "Feed",
+        }}
+      />
+      <Tab.Screen
+        name="Groups"
+        component={GroupsScreen}
+        options={{
+          tabBarLabel: "Groups",
+        }}
+      />
+      <Tab.Screen
+        name="Create"
+        component={CreateScreen}
+        options={{
+          tabBarLabel: "",
+          tabBarStyle: { display: 'none' },
           headerShown: false,
+        }}
+      />
+      <Tab.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{
+          tabBarLabel: "Chat",
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: "Profile",
         }}
       />
     </Tab.Navigator>

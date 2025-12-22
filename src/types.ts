@@ -12,8 +12,12 @@ export interface User {
 // Routes
 export type AppRoutes = {
   // Tabs
+  'Feed': any;
+  'Groups': any;
+  'Create': any;
+  'Chat': any;
+  'Profile': any;
   'home': any;
-  // ...
 
   // Root Stack
   'splash-screen': any;

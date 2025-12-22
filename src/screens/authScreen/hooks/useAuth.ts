@@ -4,6 +4,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { signIn, signUp } from '../../../services/authService';
 import { userApi } from '../../../services/apis/UserApis';
 import useAuthStore from '../../../store/useAuthStore';
+import { storeCognitoTokens } from '../../../utils/AsyncStorageApis';
 import { AppRoutes } from '../../../types';
 
 type AuthScreenNavigationProp = StackNavigationProp<AppRoutes, 'auth-screen'>;
@@ -46,8 +47,29 @@ export function useAuth({
     try {
       const tokens = await signIn(email, password);
 
+      console.log('🔐 [FULL ACCESS TOKEN RECEIVED] =>', {
+        access_token: tokens.access_token,
+        access_token_length: tokens.access_token?.length || 0,
+        refresh_token: tokens.refresh_token ? `${tokens.refresh_token.substring(0, 50)}...` : 'none',
+        id_token: tokens.id_token ? `${tokens.id_token.substring(0, 50)}...` : 'none',
+        token_type: 'Bearer',
+        expires_in: tokens.expires_in || 3600,
+        timestamp: new Date().toISOString()
+      });
+
+      // Store tokens first so the API interceptor can use them
+      if (tokens.access_token && tokens.refresh_token) {
+        await storeCognitoTokens({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          id_token: tokens.id_token,
+          token_type: 'Bearer',
+          expires_in: tokens.expires_in || 3600
+        });
+      }
+
       try {
-        const userProfile = await userApi.getUserProfile(tokens.access_token || '');
+        const userProfile = await userApi.getUserProfile();
         
         // Set user data in store
         setUser({ 
@@ -96,7 +118,14 @@ export function useAuth({
       } catch (profileError: any) {
         console.error('Error checking user profile:', profileError);
         
-        if (profileError.message?.includes('404') || profileError.message?.includes('not found')) {
+        // Handle user not found in database (401) or 404 errors
+        if (
+          profileError.message?.includes('404') || 
+          profileError.message?.includes('not found') ||
+          profileError.message?.includes('User not found in database') ||
+          profileError.response?.status === 401
+        ) {
+          console.log('🚀 [USER NOT FOUND] => Navigating to ProfileCompletionScreen');
           setModalContent({
             title: "Complete Your Profile",
             message: "Please complete your profile to continue.",

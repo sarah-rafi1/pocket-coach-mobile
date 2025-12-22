@@ -22,47 +22,61 @@ export const useGetUserProfileQuery = (options = {}) => {
   });
 };
 
-export const useUserProfileQuery = (accessToken: string | null, enabled: boolean = true) => {
+export const useUserProfileQuery = (enabled: boolean = true) => {
   const { setLoading, setError } = useApiStore();
+  const { user } = useAuthStore();
 
-  return useQuery({
-    queryKey: ['userProfile', accessToken],
+  const query = useQuery({
+    queryKey: ['userProfile'],
     queryFn: () => {
-      if (!accessToken) {
-        throw new Error('Access token is required');
-      }
-      return userApi.getUserProfile(accessToken);
+      return userApi.getUserProfile();
     },
-    enabled: enabled && !!accessToken,
-    onError: (error: any) => {
-      console.error('User profile fetch failed:', error);
-      const message = error?.message || 'Failed to fetch user profile.';
-      setError(message);
-    },
+    enabled: enabled && !!user,
     retry: false, // Don't retry on user profile failures
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
+
+  // Handle errors using the error state from the query
+  if (query.error) {
+    console.error('User profile fetch failed:', query.error);
+    const message = query.error?.message || 'Failed to fetch user profile.';
+    setError(message);
+  }
+
+  return query;
 };
 
 export const useInterestsQuery = () => {
   return useQuery({
     queryKey: ['interests'],
     queryFn: async () => {
+      console.log('🚀 [useInterestsQuery] Starting interests API call - ENTRY POINT');
       try {
         const interests = await userApi.getInterests();
-        // Ensure we always return an array, even if the API fails
+        console.log('✅ [useInterestsQuery] Full API Response:', {
+          rawResponse: interests,
+          isArray: Array.isArray(interests),
+          length: interests?.length,
+          firstFew: interests?.slice(0, 3),
+          allData: interests,
+          stringified: JSON.stringify(interests).substring(0, 200)
+        });
+        // Ensure we always return an array
         return Array.isArray(interests) ? interests : [];
-      } catch (error) {
-        console.error('Interests fetch failed:', error);
-        // Return empty array instead of throwing to prevent component crashes
+      } catch (error: any) {
+        console.error('❌ [useInterestsQuery] Error calling getInterests:', {
+          error: error,
+          message: error?.message,
+          stack: error?.stack
+        });
+        // Return empty array on error to prevent crashes
         return [];
       }
     },
     retry: 2, // Retry up to 2 times for interests
     staleTime: 10 * 60 * 1000, // Consider interests data fresh for 10 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
-    // Provide default data to prevent undefined issues
-    initialData: [],
+    // Remove initialData to force actual API call
   });
 };
 

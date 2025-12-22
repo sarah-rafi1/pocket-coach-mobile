@@ -25,3 +25,8 @@ export { default as ResetPasswordLogo } from "./ResetPasswordLogo";
 // Navigation Icons
 export { default as HomeSelectedIcon } from "./HomeSelectedIcon";
 export { default as HomeUnselectedIcon } from "./HomeUnselectedIcon";
+export { default as FeedIcon } from "./FeedIcon";
+export { default as GroupsIcon } from "./GroupsIcon";
+export { default as ChatIcon } from "./ChatIcon";
+export { default as ProfileIcon } from "./ProfileIcon";
+export { default as PlusIcon } from "./PlusIcon";
