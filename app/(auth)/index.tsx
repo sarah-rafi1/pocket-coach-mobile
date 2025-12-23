@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ImageBackground, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Keyboard } from 'react-native';
+import { View, Text, ImageBackground, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ReusableButton, ReusableInput, GradientText, InfoModal, SocialAuthButtons } from '@/components';
+import { ReusableButton, ReusableInput, GradientText, SocialAuthButtons } from '@/components';
 import { fonts } from '@/libs/constants/typography';
 import { validateEmailField } from '@/libs/utils/validationSchemas';
+import { useLogin, useSSOSignIn } from '@/libs/queries/auth.query';
+import { showToast } from '@/libs/utils';
 import {
   HomeLogo,
   WavingHand,
   Letter,
   LockPassword,
   EyeIcon,
-  CloseEyeIcon,
-  TickIcon
+  CloseEyeIcon
 } from '@/assets/icons';
 
 export default function LoginScreen() {
@@ -47,13 +48,13 @@ export default function LoginScreen() {
 
   // UI states
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
-  // Modal states
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [modalContent, setModalContent] = useState({ title: '', message: '', action: () => {} });
+  // Auth hooks
+  const loginMutation = useLogin();
+  const googleSSOSignIn = useSSOSignIn('oauth_google');
+  const facebookSSOSignIn = useSSOSignIn('oauth_facebook');
+  const appleSSOSignIn = useSSOSignIn('oauth_apple');
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -71,67 +72,40 @@ export default function LoginScreen() {
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     if (!email || !password) {
-      setModalContent({
-        title: "Error",
-        message: "Please enter email and password",
-        action: () => setShowErrorModal(false)
-      });
-      setShowErrorModal(true);
+      showToast('error', 'Missing Fields', 'Please enter email and password');
       return;
     }
 
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      setModalContent({
-        title: "Success",
-        message: "Login UI works! (No backend connected)",
-        action: () => setShowSuccessModal(false)
-      });
-      setShowSuccessModal(true);
-    }, 1000);
+    const emailValidation = validateEmailField(email);
+    if (!emailValidation.isValid) {
+      setEmailError(emailValidation.error || 'Invalid email');
+      return;
+    }
+
+    loginMutation.mutate({ email, password });
   };
 
-  const handleGoogleAuth = async () => {
-    setSocialLoading("google");
-    setTimeout(() => {
-      setSocialLoading(null);
-      setModalContent({
-        title: "Success",
-        message: "Google Sign in UI works! (No backend connected)",
-        action: () => setShowSuccessModal(false)
-      });
-      setShowSuccessModal(true);
-    }, 1000);
+  const handleGoogleAuth = () => {
+    setSocialLoading('google');
+    googleSSOSignIn.mutate(undefined, {
+      onSettled: () => setSocialLoading(null),
+    });
   };
 
-  const handleFacebookAuth = async () => {
-    setSocialLoading("facebook");
-    setTimeout(() => {
-      setSocialLoading(null);
-      setModalContent({
-        title: "Success",
-        message: "Facebook Sign in UI works! (No backend connected)",
-        action: () => setShowSuccessModal(false)
-      });
-      setShowSuccessModal(true);
-    }, 1000);
+  const handleFacebookAuth = () => {
+    setSocialLoading('facebook');
+    facebookSSOSignIn.mutate(undefined, {
+      onSettled: () => setSocialLoading(null),
+    });
   };
 
-  const handleAppleAuth = async () => {
-    setSocialLoading("apple");
-    setTimeout(() => {
-      setSocialLoading(null);
-      setModalContent({
-        title: "Success",
-        message: "Apple Sign in UI works! (No backend connected)",
-        action: () => setShowSuccessModal(false)
-      });
-      setShowSuccessModal(true);
-    }, 1000);
+  const handleAppleAuth = () => {
+    setSocialLoading('apple');
+    appleSSOSignIn.mutate(undefined, {
+      onSettled: () => setSocialLoading(null),
+    });
   };
 
   const navigateToForgotPassword = () => {
@@ -231,11 +205,11 @@ export default function LoginScreen() {
             {/* Submit Button */}
             <View className="mb-6">
               <ReusableButton
-                title={loading ? "Signing In..." : "Sign In"}
+                title={loginMutation.isPending ? "Signing In..." : "Sign In"}
                 variant="gradient"
                 fullWidth={true}
                 onPress={handleLogin}
-                disabled={loading || socialLoading !== null}
+                disabled={loginMutation.isPending || socialLoading !== null}
               />
             </View>
 
@@ -246,7 +220,7 @@ export default function LoginScreen() {
               onGooglePress={handleGoogleAuth}
               onFacebookPress={handleFacebookAuth}
               onApplePress={handleAppleAuth}
-              disabled={loading}
+              disabled={loginMutation.isPending}
             />
 
             {/* Switch Mode */}
@@ -261,25 +235,6 @@ export default function LoginScreen() {
           </View>
           </ScrollView>
         </KeyboardAvoidingView>
-
-        {/* Success Modal */}
-        <InfoModal
-          visible={showSuccessModal}
-          title={modalContent.title}
-          message={modalContent.message}
-          buttonText="Continue"
-          onButtonPress={modalContent.action}
-          icon={<TickIcon />}
-        />
-
-        {/* Error Modal */}
-        <InfoModal
-          visible={showErrorModal}
-          title={modalContent.title}
-          message={modalContent.message}
-          buttonText="Try Again"
-          onButtonPress={modalContent.action}
-        />
       </ImageBackground>
     </SafeAreaView>
   );

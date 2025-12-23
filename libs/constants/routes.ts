@@ -4,6 +4,7 @@ export const ROUTES = {
     LOGIN: '/(auth)/login',
     SIGNUP: '/(auth)/signup',
     FORGOT_PASSWORD: '/(auth)/forgot-password',
+    EMAIL_VERIFICATION: '/(auth)/email-verification',
   },
   ONBOARDING: {
     PROFILE_COMPLETION: '/(onboarding)/profile-completion',

@@ -1,6 +1,7 @@
 import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'https://api.example.com';
+const API_BASE_URL = 'http://18.232.64.216:3000';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -12,22 +13,28 @@ export const apiClient = axios.create({
 // Request interceptor for adding auth token
 apiClient.interceptors.request.use(
   async (config) => {
-    // TODO: Add Clerk token to requests
-    // const token = await getToken();
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    try {
+      // Clerk stores the JWT token in secure store
+      const token = await SecureStore.getItemAsync('__clerk_client_jwt');
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error('Failed to get auth token:', error);
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor for handling 401 errors
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized
+      console.warn('Unauthorized - token may be expired');
     }
     return Promise.reject(error);
   }

@@ -2,16 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ImageBackground, ScrollView, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ReusableButton, ReusableInput, GradientText, InfoModal, PasswordRequirements, SocialAuthButtons } from '@/components';
+import { ReusableButton, ReusableInput, GradientText, PasswordRequirements, SocialAuthButtons } from '@/components';
 import { fonts } from '@/libs/constants/typography';
 import { validateEmailField, validatePasswordField } from '@/libs/utils/validationSchemas';
+import { useSignUp, useSSOSignIn } from '@/libs/queries/auth.query';
+import { showToast } from '@/libs/utils';
 import {
   HomeLogo,
   Letter,
   LockPassword,
   EyeIcon,
-  CloseEyeIcon,
-  TickIcon
+  CloseEyeIcon
 } from '@/assets/icons';
 
 export default function SignUpScreen() {
@@ -42,13 +43,13 @@ export default function SignUpScreen() {
   // UI states
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
 
-  // Modal states
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [modalContent, setModalContent] = useState({ title: '', message: '', action: () => {} });
+  // Auth hooks
+  const signUpMutation = useSignUp();
+  const googleSSOSignIn = useSSOSignIn('oauth_google');
+  const facebookSSOSignIn = useSSOSignIn('oauth_facebook');
+  const appleSSOSignIn = useSSOSignIn('oauth_apple');
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
@@ -82,7 +83,7 @@ export default function SignUpScreen() {
     if (confirmPassword && confirmPassword !== password) setConfirmPasswordError('Passwords do not match');
   };
 
-  const handleSignUp = async () => {
+  const handleSignUp = () => {
     let hasError = false;
 
     if (!email) {
@@ -114,30 +115,29 @@ export default function SignUpScreen() {
     }
 
     if (!hasError) {
-      setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
-        setModalContent({
-          title: "Success",
-          message: "Sign up UI works! (No backend connected)",
-          action: () => setShowSuccessModal(false)
-        });
-        setShowSuccessModal(true);
-      }, 1000);
+      signUpMutation.mutate({ email, password });
     }
   };
 
-  const handleSocialAuth = (provider: 'google' | 'facebook' | 'apple') => {
-    setSocialLoading(provider);
-    setTimeout(() => {
-      setSocialLoading(null);
-      setModalContent({
-        title: "Success",
-        message: `${provider.charAt(0).toUpperCase() + provider.slice(1)} Sign up UI works!`,
-        action: () => setShowSuccessModal(false)
-      });
-      setShowSuccessModal(true);
-    }, 1000);
+  const handleGoogleAuth = () => {
+    setSocialLoading('google');
+    googleSSOSignIn.mutate(undefined, {
+      onSettled: () => setSocialLoading(null),
+    });
+  };
+
+  const handleFacebookAuth = () => {
+    setSocialLoading('facebook');
+    facebookSSOSignIn.mutate(undefined, {
+      onSettled: () => setSocialLoading(null),
+    });
+  };
+
+  const handleAppleAuth = () => {
+    setSocialLoading('apple');
+    appleSSOSignIn.mutate(undefined, {
+      onSettled: () => setSocialLoading(null),
+    });
   };
 
   return (
@@ -193,14 +193,14 @@ export default function SignUpScreen() {
             </View>
 
             <View className="mb-6">
-              <ReusableButton title={loading ? "Creating Account..." : "Sign Up"} variant="gradient" fullWidth={true}
-                onPress={handleSignUp} disabled={loading || socialLoading !== null} />
+              <ReusableButton title={signUpMutation.isPending ? "Creating Account..." : "Sign Up"} variant="gradient" fullWidth={true}
+                onPress={handleSignUp} disabled={signUpMutation.isPending || socialLoading !== null} />
             </View>
 
             <SocialAuthButtons mode="signup" socialLoading={socialLoading}
-              onGooglePress={() => handleSocialAuth('google')}
-              onFacebookPress={() => handleSocialAuth('facebook')}
-              onApplePress={() => handleSocialAuth('apple')} disabled={loading} />
+              onGooglePress={handleGoogleAuth}
+              onFacebookPress={handleFacebookAuth}
+              onApplePress={handleAppleAuth} disabled={signUpMutation.isPending} />
 
             <View className="flex-row justify-center items-center pb-4">
               <Text className="text-gray-400 text-sm" style={{ fontFamily: fonts.SharpSansRegular }}>Already have an account? </Text>
@@ -209,11 +209,6 @@ export default function SignUpScreen() {
           </View>
           </ScrollView>
         </KeyboardAvoidingView>
-
-        <InfoModal visible={showSuccessModal} title={modalContent.title} message={modalContent.message}
-          buttonText="Continue" onButtonPress={modalContent.action} icon={<TickIcon />} />
-        <InfoModal visible={showErrorModal} title={modalContent.title} message={modalContent.message}
-          buttonText="Try Again" onButtonPress={modalContent.action} />
       </ImageBackground>
     </SafeAreaView>
   );

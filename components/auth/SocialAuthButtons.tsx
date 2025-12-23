@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { fonts } from '@/libs/constants/typography';
 import { FacebookLogo, GoogleIcon, AppleIcon } from '@/assets/icons';
 
@@ -52,18 +52,16 @@ export function SocialAuthButtons({
         </View>
 
         {/* Apple */}
-        {Platform.OS === 'ios' && (
-          <View
-            className="w-14 h-14 rounded-full items-center justify-center"
-            onTouchEnd={disabled ? undefined : onApplePress}
-          >
-            {socialLoading === "apple" ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <AppleIcon />
-            )}
-          </View>
-        )}
+        <View
+          className="w-14 h-14 rounded-full items-center justify-center"
+          onTouchEnd={disabled ? undefined : onApplePress}
+        >
+          {socialLoading === "apple" ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <AppleIcon />
+          )}
+        </View>
       </View>
     </View>
   );

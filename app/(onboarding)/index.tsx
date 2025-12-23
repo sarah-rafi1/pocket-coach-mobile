@@ -141,6 +141,7 @@ export default function ProfileCompletionScreen() {
   };
 
   const validateStep1 = () => {
+    console.log('Validating Step 1 with data:', profileData);
     const step1Data = {
       username: profileData.username,
       displayName: profileData.displayName,
@@ -163,6 +164,7 @@ export default function ProfileCompletionScreen() {
 
   const handleContinueStep1 = () => {
     if (validateStep1()) {
+      console.log('Step 1 validated successfully');
       setCurrentStep(2);
     }
   };
@@ -175,6 +177,7 @@ export default function ProfileCompletionScreen() {
     );
   };
 
+
   const handleCompleteProfile = async () => {
     if (selectedInterests.length === 0) {
       setModalContent({
@@ -182,13 +185,15 @@ export default function ProfileCompletionScreen() {
         message: 'Please select at least one interest to continue.',
         action: () => setShowErrorModal(false)
       });
+
       setShowErrorModal(true);
+
       return;
     }
 
     try {
-      // Get Clerk token
       const token = await getToken();
+      console.log('Clerk token retrieved:', token);
       if (!token) {
         setModalContent({
           title: 'Authentication Error',
@@ -254,19 +259,9 @@ export default function ProfileCompletionScreen() {
         accessToken: token
       });
 
-      // Update Clerk user metadata to mark onboarding as completed
-      await fetch(`https://api.clerk.com/v1/users/${user?.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          public_metadata: {
-            onboardingCompleted: true,
-          },
-        }),
-      });
+      console.log("toke", token);
+      console.log('Onboarding API call successful', onboardingPayload);
+
 
       // Show success modal and navigate
       setModalContent({
