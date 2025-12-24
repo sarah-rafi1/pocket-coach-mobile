@@ -62,6 +62,10 @@ function ProtectedRootLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      {/* OAuth/SSO callbacks - available to all */}
+      <Stack.Screen name="oauth-callback" />
+      <Stack.Screen name="sso-callback" />
+
       {/* Unauthenticated → show only auth routes */}
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="(auth)" />

@@ -29,7 +29,6 @@ export type OAuthStrategy = 'oauth_google' | 'oauth_facebook' | 'oauth_apple';
 
 // ============= LOGIN =============
 export function useLogin() {
-  const router = useRouter();
   const { signIn, setActive } = useSignIn();
 
   return useMutation({
@@ -124,7 +123,6 @@ export function useSignUp() {
 
 // ============= EMAIL VERIFICATION =============
 export function useVerifyEmail() {
-  const router = useRouter();
   const { signUp, setActive } = useClerkSignUp();
 
   return useMutation({
@@ -185,7 +183,6 @@ export function useResendVerificationCode() {
 
 // ============= SSO / OAUTH =============
 export function useSSOSignIn(strategy: OAuthStrategy) {
-  const router = useRouter();
   const { startSSOFlow } = useSSO();
   const clerk = useClerk();
 
@@ -197,15 +194,11 @@ export function useSSOSignIn(strategy: OAuthStrategy) {
     mutationFn: async () => {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy,
-        redirectUrl: AuthSession.makeRedirectUri({
-          scheme: 'pocketcoach',
-          path: 'oauth-callback',
-        }),
       });
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       return { createdSessionId, user: clerk.user };

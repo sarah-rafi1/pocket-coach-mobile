@@ -1,6 +1,3 @@
-// // // //
-// // 💡 Modify accordingly
-
 const LIGHT_THEME = {
   primary: '#C70039 ',
 
