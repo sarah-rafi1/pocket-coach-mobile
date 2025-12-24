@@ -205,7 +205,7 @@ export function useSSOSignIn(strategy: OAuthStrategy) {
     },
     onSuccess: (data) => {
       console.log(`${formattedName} authentication successful - triggering navigation`);
-      const onboardingComplete = data.user?.publicMetadata?.onboardingCompleted === true;
+      const onboardingComplete = data.user?.unsafeMetadata?.onboardingCompleted === true;
 
       if (!onboardingComplete) {
         showToast('info', 'Complete Your Profile', 'Please complete your profile setup');

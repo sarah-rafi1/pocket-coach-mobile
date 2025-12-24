@@ -1,15 +1,23 @@
 import React from 'react';
 import { View, Text, ImageBackground, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useUser } from '@clerk/clerk-expo';
 import { ReusableButton } from '@/components';
 import { fonts } from '@/libs/constants/typography';
 
 export default function ProfileSuccessScreen() {
-  const router = useRouter();
+  const { user } = useUser();
 
-  const handleGoToHome = () => {
-    router.replace('/(app)');
+  const handleGoToHome = async () => {
+    // Update Clerk user metadata to mark onboarding as complete
+    await user?.update({
+      unsafeMetadata: {
+        onboardingCompleted: true,
+      },
+    });
+
+    console.log('Clerk metadata updated - onboarding marked as complete');
+
   };
 
   return (

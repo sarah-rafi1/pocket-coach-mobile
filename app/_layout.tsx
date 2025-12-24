@@ -9,6 +9,7 @@ import { toastConfig } from '@/libs/config/toast.config';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { SplashScreen } from 'expo-router';
+import { CLERK_PUBLISHABLE_KEY } from '@/libs/config/env';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -28,11 +29,9 @@ const tokenCache = {
   },
 };
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
-
 export default function RootLayout() {
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <QueryClientProvider client={queryClient}>
         <ProtectedRootLayout />
         <Toast config={toastConfig} />
@@ -58,7 +57,7 @@ function ProtectedRootLayout() {
   }
 
   const hasCompletedOnboarding =
-    user?.publicMetadata?.onboardingCompleted === true;
+    user?.unsafeMetadata?.onboardingCompleted === true;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

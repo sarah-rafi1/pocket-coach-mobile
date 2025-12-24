@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import { ROUTES } from '@/libs/constants/routes';
 
 export default function OAuthCallback() {
   const router = useRouter();
@@ -20,19 +21,19 @@ export default function OAuthCallback() {
 
       if (!isSignedIn) {
         // If not signed in, go back to auth
-        router.replace('/(auth)');
+        router.replace(ROUTES.AUTH.BASE);
         return;
       }
 
       // Check if user has completed onboarding
-      const hasCompletedOnboarding = user?.publicMetadata?.onboardingCompleted === true;
+      const hasCompletedOnboarding = user?.unsafeMetadata?.onboardingCompleted === true;
 
       if (hasCompletedOnboarding) {
         // User is fully onboarded, go to main app
-        router.replace('/(app)');
+        router.replace(ROUTES.APP.BASE);
       } else {
         // User needs to complete onboarding/profile
-        router.replace('/(onboarding)');
+        router.replace(ROUTES.ONBOARDING.BASE);
       }
     };
 

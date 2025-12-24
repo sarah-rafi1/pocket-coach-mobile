@@ -17,6 +17,7 @@ interface ProfileStep1Props {
   usernameError: string;
   displayNameError: string;
   isKeyboardVisible: boolean;
+  isCheckingUsername?: boolean;
   onUsernameChange: (text: string) => void;
   onDisplayNameChange: (text: string) => void;
   onBioChange: (text: string) => void;
@@ -31,6 +32,7 @@ export function ProfileStep1({
   usernameError,
   displayNameError,
   isKeyboardVisible,
+  isCheckingUsername = false,
   onUsernameChange,
   onDisplayNameChange,
   onBioChange,
@@ -157,10 +159,11 @@ export function ProfileStep1({
       {/* Fixed Bottom Button */}
       <View className="px-6 pb-8 pt-3">
         <ReusableButton
-          title="Continue"
+          title={isCheckingUsername ? "Checking..." : "Continue"}
           variant="gradient"
           fullWidth={true}
           onPress={onContinue}
+          disabled={isCheckingUsername}
         />
       </View>
     </>

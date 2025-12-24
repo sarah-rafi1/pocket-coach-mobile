@@ -58,6 +58,8 @@ export const onboardingService = {
       formData.append('profile_image', fileInfo as any);
     }
 
+    console.log('Sending onboarding request with token:', accessToken ? 'Token exists (length: ' + accessToken.length + ')' : 'No token');
+
     const response = await apiClient.post(API_ROUTES.USER.ONBOARDING, formData, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -65,6 +67,7 @@ export const onboardingService = {
       },
     });
 
+    console.log('Onboarding response status:', response.status);
     return response.data;
   },
 };

@@ -1,7 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-
-const API_BASE_URL = 'http://54.144.148.126:3000';
+import { API_BASE_URL } from '@/libs/config/env';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -13,15 +12,25 @@ export const apiClient = axios.create({
 // Request interceptor for adding auth token
 apiClient.interceptors.request.use(
   async (config) => {
-    try {
-      // Clerk stores the JWT token in secure store
-      const token = await SecureStore.getItemAsync('__clerk_client_jwt');
+    // Log the full request URL for debugging
+    const fullUrl = `${config.baseURL}${config.url}`;
+    console.log(`API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
 
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+    // Only set Authorization header if one isn't already provided
+    const token = await SecureStore.getItemAsync('__clerk_client_jwt');
+    console.log('Auth token retrieved from SecureStore:', token);
+
+    if (!config.headers.Authorization) {
+      try {
+        // Clerk stores the JWT token in secure store
+        console.log('Retrieved token from SecureStore:', token ? 'Exists' : 'Not found');
+
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (error) {
+        console.error('Failed to get auth token:', error);
       }
-    } catch (error) {
-      console.error('Failed to get auth token:', error);
     }
 
     return config;

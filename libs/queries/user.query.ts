@@ -24,3 +24,13 @@ export function useUpdateProfile() {
     },
   });
 }
+
+export function useCheckUsername() {
+  return useMutation({
+    mutationFn: ({ username, token }: { username: string; token: string }) =>
+      userService.checkUsernameAvailability(username, token),
+    onError: (error) => {
+      console.error('Username check failed:', error);
+    },
+  });
+}

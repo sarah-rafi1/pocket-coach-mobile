@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ImageBackground, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/clerk-expo';
+import * as SecureStore from 'expo-secure-store';
 import * as ImagePicker from 'expo-image-picker';
 import { InfoModal, ProfileStep1, ProfileStep2, ImagePickerModal } from '@/components';
 import { TickIcon } from '@/assets/icons';
@@ -10,6 +11,8 @@ import { useOnboardingMutation } from '@/libs/queries/onboarding.query';
 import { useInterestsQuery } from '@/libs/queries/interests.query';
 import { Interest } from '@/libs/interfaces/user.types';
 import { OnboardingPayload } from '@/libs/interfaces/onboarding.types';
+import { useCheckUsername } from '@/libs/queries/user.query';
+import { ROUTES } from '@/libs/constants/routes';
 import {
   validateForm,
   validateUsernameField,
@@ -30,8 +33,8 @@ interface ProfileData {
 export default function ProfileCompletionScreen() {
   const router = useRouter();
   const { getToken } = useAuth();
-  const { user } = useUser();
   const onboardingMutation = useOnboardingMutation();
+  const checkUsernameMutation = useCheckUsername();
   const { data: interests, isLoading: interestsLoading, error: interestsError } = useInterestsQuery();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -162,9 +165,47 @@ export default function ProfileCompletionScreen() {
     return true;
   };
 
-  const handleContinueStep1 = () => {
-    if (validateStep1()) {
-      console.log('Step 1 validated successfully');
+  const handleContinueStep1 = async () => {
+    console.log('Continuing from Step 1 with data:', profileData);
+
+    // First validate the form
+    if (!validateStep1()) {
+      return;
+    }
+
+    console.log('Step 1 validated successfully');
+
+    try {
+      // Get Clerk token
+      const token = await getToken();
+
+      if (!token) {
+        console.warn('No auth token available for username check');
+        // Proceed to step 2 anyway - username uniqueness will be checked during onboarding
+        setCurrentStep(2);
+        return;
+      }
+
+      // Check username availability
+      console.log('Checking username availability for:', profileData.username);
+      const result = await checkUsernameMutation.mutateAsync({
+        username: profileData.username,
+        token,
+      });
+
+      console.log('Username availability result:', result);
+
+      if (!result.data.available) {
+        setUsernameError('This username is already taken. Please choose another.');
+        return;
+      }
+
+      console.log('Username is available, moving to step 2');
+      setCurrentStep(2);
+    } catch (error: any) {
+      console.error('Error checking username:', error);
+      // If the API call fails, show error but allow to proceed
+      // (in case it's a network issue, not an actual username conflict)
       setCurrentStep(2);
     }
   };
@@ -179,6 +220,8 @@ export default function ProfileCompletionScreen() {
 
 
   const handleCompleteProfile = async () => {
+    console.log('Completing profile with data:', profileData, 'and interests:', selectedInterests);
+      const token = await getToken();
     if (selectedInterests.length === 0) {
       setModalContent({
         title: 'Select Interests',
@@ -192,7 +235,7 @@ export default function ProfileCompletionScreen() {
     }
 
     try {
-      const token = await getToken();
+    
       console.log('Clerk token retrieved:', token);
       if (!token) {
         setModalContent({
@@ -200,7 +243,7 @@ export default function ProfileCompletionScreen() {
           message: 'Session expired. Please log in again.',
           action: () => {
             setShowErrorModal(false);
-            router.push('/(auth)/login');
+            router.push(ROUTES.AUTH.LOGIN);
           }
         });
         setShowErrorModal(true);
@@ -262,6 +305,8 @@ export default function ProfileCompletionScreen() {
       console.log("toke", token);
       console.log('Onboarding API call successful', onboardingPayload);
 
+      // Don't update metadata yet - will do it on success screen
+      // This prevents immediate redirect to (app) routes
 
       // Show success modal and navigate
       setModalContent({
@@ -269,16 +314,31 @@ export default function ProfileCompletionScreen() {
         message: 'Your profile has been successfully created.',
         action: () => {
           setShowSuccessModal(false);
-          router.push('/(onboarding)/success');
+          router.push(ROUTES.ONBOARDING.SUCCESS);
         }
       });
       setShowSuccessModal(true);
 
     } catch (error: any) {
       console.error('Onboarding failed:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error headers:', error.response?.headers);
+
+      let errorTitle = 'Profile Creation Failed';
+      let errorMessage = error.response?.data?.message || error.message || 'Failed to complete profile setup. Please try again.';
+
+      // Handle 409 Conflict - username already taken
+      if (error.response?.status === 409) {
+        errorTitle = 'Username Already Taken';
+        errorMessage = 'This username is already in use. Please choose a different username.';
+        // Go back to step 1 to let user change username
+        setCurrentStep(1);
+      }
+
       setModalContent({
-        title: 'Profile Creation Failed',
-        message: error.message || 'Failed to complete profile setup. Please try again.',
+        title: errorTitle,
+        message: errorMessage,
         action: () => setShowErrorModal(false)
       });
       setShowErrorModal(true);
@@ -311,6 +371,7 @@ export default function ProfileCompletionScreen() {
               usernameError={usernameError}
               displayNameError={displayNameError}
               isKeyboardVisible={isKeyboardVisible}
+              isCheckingUsername={checkUsernameMutation.isPending}
               onUsernameChange={handleUsernameChange}
               onDisplayNameChange={handleDisplayNameChange}
               onBioChange={handleBioChange}

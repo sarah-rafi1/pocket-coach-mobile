@@ -1,5 +1,6 @@
 export const ROUTES = {
   AUTH: {
+    BASE: '/(auth)',
     WELCOME: '/(auth)/welcome',
     LOGIN: '/(auth)/login',
     SIGNUP: '/(auth)/signup',
@@ -7,10 +8,12 @@ export const ROUTES = {
     EMAIL_VERIFICATION: '/(auth)/email-verification',
   },
   ONBOARDING: {
+    BASE: '/(onboarding)',
     PROFILE_COMPLETION: '/(onboarding)/profile-completion',
     SUCCESS: '/(onboarding)/success',
   },
   APP: {
+    BASE: '/(app)',
     HOME: '/(app)/(tabs)/home',
     PROFILE: '/(app)/(tabs)/profile',
     SETTINGS: '/(app)/(tabs)/settings',
