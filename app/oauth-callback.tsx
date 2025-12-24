@@ -1,0 +1,49 @@
+import { useEffect } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { ROUTES } from '@/libs/constants/routes';
+
+export default function OAuthCallback() {
+  const router = useRouter();
+  const { isSignedIn, isLoaded } = useAuth();
+  const { user, isLoaded: userLoaded } = useUser();
+
+  useEffect(() => {
+    const handleCallback = async () => {
+      // Wait for auth and user to be loaded
+      if (!isLoaded || !userLoaded) {
+        return;
+      }
+
+      // Small delay to ensure everything is settled
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (!isSignedIn) {
+        // If not signed in, go back to auth
+        router.replace(ROUTES.AUTH.BASE);
+        return;
+      }
+
+      // Check if user has completed onboarding
+      const hasCompletedOnboarding = user?.unsafeMetadata?.onboardingCompleted === true;
+
+      if (hasCompletedOnboarding) {
+        // User is fully onboarded, go to main app
+        router.replace(ROUTES.APP.BASE);
+      } else {
+        // User needs to complete onboarding/profile
+        router.replace(ROUTES.ONBOARDING.BASE);
+      }
+    };
+
+    handleCallback();
+  }, [isLoaded, userLoaded, isSignedIn, user]);
+
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+      <ActivityIndicator size="large" color="#fff" />
+      <Text style={{ color: '#fff', marginTop: 16, fontSize: 16 }}>Completing sign in...</Text>
+    </View>
+  );
+}
