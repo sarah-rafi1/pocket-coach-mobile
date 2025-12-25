@@ -10,173 +10,332 @@ Create a TikTok/Instagram Reels-style vertical scrolling feed with full-screen p
 - ✅ Create button navigates to dummy screen
 - ✅ Focus on feed/scroll functionality (NO comments implementation)
 
+## Architecture Pattern
+
+Following existing codebase pattern (community feature):
+- **Single component files** (no container/view splits)
+- **One comprehensive query file** (all mutations in feed.query.ts)
+- **Custom hooks** for complex reusable logic
+- **Parent orchestration** via hooks and callbacks
+- **Child components** receive callbacks as props
+
 ## Folder Structure
 
-### New Files to Create (28 files - Simplified)
+### New Files to Create (~15 files)
 ```
-app/(app)/
-├── _layout.tsx                    # Modified: Add (tabs) group routing
-└── (tabs)/                        # NEW: Tabs subfolder for better organization
-    ├── _layout.tsx                # Tab navigator configuration
-    ├── index.tsx                  # Feed tab (replaces old index.tsx)
-    ├── groups.tsx                 # Groups tab (dummy)
-    ├── create.tsx                 # Create tab (dummy)
-    ├── chat.tsx                   # Chat tab (dummy)
-    └── profile.tsx                # Profile tab (moved from app/(app)/)
+app/(app)/(tabs)/                  # NEW: Tabs subfolder
+├── _layout.tsx                    # Tab navigator configuration (5 tabs)
+├── index.tsx                      # Feed screen - orchestrates with hooks
+├── groups.tsx                     # Groups tab (dummy)
+├── create.tsx                     # Create tab (dummy)
+├── chat.tsx                       # Chat tab (dummy)
+└── profile.tsx                    # Profile tab (moved from app/(app)/)
 
 components/feed/
-├── FeedList.container.tsx         # Feed list logic (data, pagination, viewability)
-├── FeedList.view.tsx              # Feed list UI (CustomFlatList wrapper)
-├── FeedPost.container.tsx         # Post logic (interaction orchestration, video state)
-├── FeedPost.view.tsx              # Post UI (layout, composition)
-├── FeedVideo.tsx                  # Video player (combined - moderate complexity)
-├── FeedTopBar.tsx                 # Top bar (simple - logo, saved, search)
-├── FeedCaption.tsx                # Caption (simple - truncation with read more/less)
-└── index.ts                       # Barrel export
-
-components/feed/interactions/      # Action buttons (only complex ones split)
-├── LikeButton.container.tsx       # Like logic (mutation, optimistic update, sync queue)
-├── LikeButton.view.tsx            # Like UI (button, heart animation, count)
-├── SaveButton.container.tsx       # Save logic (mutation, optimistic update, sync queue)
-├── SaveButton.view.tsx            # Save UI (button, bookmark icon, count)
-├── FollowButton.container.tsx     # Follow logic (mutation, optimistic update, sync queue)
-├── FollowButton.view.tsx          # Follow UI (+ button on avatar)
-├── ShareButton.tsx                # Share (simple - just Share.share() call)
-├── CommentButton.tsx              # Comment (simple - just UI, no logic yet)
+├── FeedList.tsx                   # List with pagination & viewability logic
+├── FeedPost.tsx                   # Post with all interactions
+├── FeedVideo.tsx                  # Video player with expo-av
+├── FeedCaption.tsx                # Caption with read more/less
+├── FeedTopBar.tsx                 # Top bar (logo, saved, search)
+├── LikeButton.tsx                 # Like button with animation
+├── SaveButton.tsx                 # Save button with animation
+├── FollowButton.tsx               # Follow button
+├── ShareButton.tsx                # Share button
+├── CommentButton.tsx              # Comment button (UI only)
 └── index.ts                       # Barrel export
 
 libs/services/
-├── feed.service.ts                # Feed API service with mock video URLs
-├── sync-queue.service.ts          # Offline sync queue (structure only - placeholders)
-└── video-cache.service.ts         # Video cache management (structure only - placeholders)
+└── feed.service.ts                # Feed API service with mock Pexels/Pixabay URLs
 
 libs/queries/
-├── feed.query.ts                  # Feed infinite query
-├── like.query.ts                  # Like mutation
-├── save.query.ts                  # Save mutation
-└── follow.query.ts                # Follow mutation
+└── feed.query.ts                  # ALL feed queries/mutations (like community.query.ts)
+                                   # - useFeed() infinite query
+                                   # - useLikePost() mutation
+                                   # - useSavePost() mutation
+                                   # - useFollowCreator() mutation
 
 libs/interfaces/
-├── feed.types.ts                  # Feed post, video, creator types
-└── sync.types.ts                  # Sync queue action types
+└── feed.types.ts                  # Feed post, video, creator types
 
 libs/stores/
-├── feed.store.ts                  # Feed interaction state (likes, saves, follows)
-├── sync-queue.store.ts            # Offline sync queue store (structure only)
-└── video-cache.store.ts           # Video cache store (structure only)
+└── feed.store.ts                  # Feed interaction state (likes, saves, follows)
 
 libs/hooks/
-└── use-video-player.ts            # Reusable video player hook (play/pause/mute, autoplay)
+├── use-video-player.ts            # Video player hook (play/pause/mute logic)
+└── use-feed-viewability.ts        # Viewability tracking hook
 ```
 
-### Files to Modify (5 files)
+### Files to Modify (3 files)
 ```
-app/(app)/
-└── _layout.tsx                    # Update: Add (tabs) group routing
-
 libs/constants/
 ├── api-routes.ts                  # Add: FEED routes
 └── query-keys.ts                  # Add: feed query keys
 
 components/index.ts                # Add: feed component exports
-libs/stores/index.ts               # Add: feed stores exports
 ```
 
-## Implementation Sequence (Simplified - 28 New Files)
+**Total: ~15 new files + 3 modified = ~18 files**
 
-### Phase 1: Foundation - Types & Constants (4 files)
-1. **libs/constants/api-routes.ts** - Add FEED, SYNC routes
-2. **libs/constants/query-keys.ts** - Add feed, like, save, follow keys
+## Implementation Sequence
+
+### Phase 1: Foundation - Types & Constants (3 files)
+1. **libs/constants/api-routes.ts** - Add FEED routes
+2. **libs/constants/query-keys.ts** - Add feed query keys
 3. **libs/interfaces/feed.types.ts** - Feed post, video, creator types
-4. **libs/interfaces/sync.types.ts** - Sync queue action types (structure only)
 
-### Phase 2: Services Layer (3 files)
-5. **libs/services/feed.service.ts** - Feed API with Pexels/Pixabay video URLs
-6. **libs/services/sync-queue.service.ts** - Sync queue placeholders (structure only)
-7. **libs/services/video-cache.service.ts** - Video cache placeholders (structure only)
+### Phase 2: Services & State (2 files)
+4. **libs/services/feed.service.ts** - Feed API with Pexels/Pixabay video URLs
+5. **libs/stores/feed.store.ts** - Feed interactions (Set-based: likes, saves, follows)
 
-### Phase 3: State Management (3 files)
-8. **libs/stores/feed.store.ts** - Feed interactions (Set-based: likes, saves, follows)
-9. **libs/stores/sync-queue.store.ts** - Sync queue structure (placeholders only)
-10. **libs/stores/video-cache.store.ts** - Cache store structure (placeholders only)
+### Phase 3: Query Hooks (1 file)
+6. **libs/queries/feed.query.ts** - ALL feed queries/mutations (~400 lines)
+   - `useFeed()` - infinite query with cursor pagination
+   - `useLikePost()` - mutation with optimistic updates
+   - `useSavePost()` - mutation with optimistic updates
+   - `useFollowCreator()` - mutation with optimistic updates
 
-### Phase 4: Query Hooks (4 files)
-11. **libs/queries/feed.query.ts** - Feed useInfiniteQuery
-12. **libs/queries/like.query.ts** - useLikePost mutation
-13. **libs/queries/save.query.ts** - useSavePost mutation
-14. **libs/queries/follow.query.ts** - useFollowCreator mutation
+### Phase 4: Custom Hooks (2 files)
+7. **libs/hooks/use-video-player.ts** - Video player hook (play/pause/mute, autoplay)
+8. **libs/hooks/use-feed-viewability.ts** - Viewability tracking hook
 
-### Phase 5: Custom Hook (1 file)
-15. **libs/hooks/use-video-player.ts** - Video player hook (play/pause/mute, autoplay)
+### Phase 5: Simple Feed Components (5 files)
+9. **components/feed/FeedTopBar.tsx** - Top bar (~80 lines)
+10. **components/feed/FeedCaption.tsx** - Caption (~70 lines)
+11. **components/feed/ShareButton.tsx** - Share (~50 lines)
+12. **components/feed/CommentButton.tsx** - Comment (~50 lines)
+13. **components/feed/FeedVideo.tsx** - Video player (~120 lines)
 
-### Phase 6: Simple Interaction Components (2 files)
-16. **components/feed/interactions/ShareButton.tsx** - Share (calls Share.share())
-17. **components/feed/interactions/CommentButton.tsx** - Comment (UI only, no logic)
+### Phase 6: Interaction Buttons (3 files)
+14. **components/feed/LikeButton.tsx** - Like with animation (~100 lines)
+15. **components/feed/SaveButton.tsx** - Save with animation (~100 lines)
+16. **components/feed/FollowButton.tsx** - Follow (~80 lines)
 
-### Phase 7: Complex Interaction Components (6 files - Container/View pairs)
-18. **components/feed/interactions/LikeButton.container.tsx** - Like mutation logic
-19. **components/feed/interactions/LikeButton.view.tsx** - Like UI with heart animation
-20. **components/feed/interactions/SaveButton.container.tsx** - Save mutation logic
-21. **components/feed/interactions/SaveButton.view.tsx** - Save UI with bookmark icon
-22. **components/feed/interactions/FollowButton.container.tsx** - Follow mutation logic
-23. **components/feed/interactions/FollowButton.view.tsx** - Follow UI with + button
-24. **components/feed/interactions/index.ts** - Barrel export
+### Phase 7: Complex Feed Components (2 files)
+17. **components/feed/FeedList.tsx** - List with pagination & viewability (~150 lines)
+18. **components/feed/FeedPost.tsx** - Post orchestrator (~200 lines)
 
-### Phase 8: Simple Feed Components (2 files)
-25. **components/feed/FeedTopBar.tsx** - Top bar (logo, saved, search)
-26. **components/feed/FeedCaption.tsx** - Caption with read more/less
+### Phase 8: Tab Structure (6 files)
+19. **app/(app)/(tabs)/_layout.tsx** - Tab navigator with 5 tabs
+20. **app/(app)/(tabs)/index.tsx** - Feed screen (orchestrates with hooks ~150 lines)
+21. **app/(app)/(tabs)/groups.tsx** - Dummy screen
+22. **app/(app)/(tabs)/create.tsx** - Dummy screen
+23. **app/(app)/(tabs)/chat.tsx** - Dummy screen
+24. Move **app/(app)/profile.tsx** → **app/(app)/(tabs)/profile.tsx**
 
-### Phase 9: Moderate Feed Components (1 file)
-27. **components/feed/FeedVideo.tsx** - Video player (combined - expo-av + gestures)
+### Phase 9: Final Exports (1 file)
+25. **components/feed/index.ts** - Barrel export
+26. Update **components/index.ts** - Add feed component exports
 
-### Phase 10: Complex Feed Components (4 files - Container/View pairs)
-28. **components/feed/FeedList.container.tsx** - Feed list logic (pagination, viewability)
-29. **components/feed/FeedList.view.tsx** - Feed list UI (CustomFlatList)
-30. **components/feed/FeedPost.container.tsx** - Post logic (interactions, video state)
-31. **components/feed/FeedPost.view.tsx** - Post layout UI
-32. **components/feed/index.ts** - Barrel export
-
-### Phase 11: Tab Structure (6 files)
-33. **app/(app)/_layout.tsx** - Update: Change Tabs to Stack, wrap (tabs) group
-34. **app/(app)/(tabs)/_layout.tsx** - NEW: Tab navigator with 5 tabs + icons
-35. **app/(app)/(tabs)/index.tsx** - NEW: Feed screen (orchestrates FeedList)
-36. **app/(app)/(tabs)/groups.tsx** - NEW: Groups dummy screen
-37. **app/(app)/(tabs)/create.tsx** - NEW: Create dummy screen
-38. **app/(app)/(tabs)/chat.tsx** - NEW: Chat dummy screen
-39. Move **app/(app)/profile.tsx** → **app/(app)/(tabs)/profile.tsx**
-
-### Phase 12: Final Exports (2 files)
-40. **components/index.ts** - Add feed component exports
-41. **libs/stores/index.ts** - Add feed stores exports
-
-**Total: 28 new files + 5 modified = 33 files touched**
+**Total: ~15 new files + 3 modified = ~18 files**
 
 ## Technical Architecture
 
-### Container/View Pattern (Selective Use)
+### Component Pattern (Following community.query.ts)
 
-**When to Use Container/View:**
-Only split components that have **significant business logic** separate from UI:
-- ✅ **FeedList**: Pagination, infinite scroll, viewability logic
-- ✅ **FeedPost**: Interaction orchestration, video state management
-- ✅ **LikeButton**: Mutation, optimistic updates, sync queue (future)
-- ✅ **SaveButton**: Same as LikeButton
-- ✅ **FollowButton**: Same as LikeButton
+**Parent Orchestration (index.tsx - Feed Screen):**
+```typescript
+export default function FeedScreen() {
+  const { data, fetchNextPage, hasNextPage } = useFeed();
+  const { mutate: likePost } = useLikePost();
+  const { mutate: savePost } = useSavePost();
+  const { mutate: followCreator } = useFollowCreator();
 
-**When NOT to Use Container/View:**
-Keep as single components when logic is simple:
-- ❌ **ShareButton**: Just calls `Share.share()` - inline in component
-- ❌ **FeedVideo**: Video player + controls in one component
-- ❌ **FeedCaption**: Simple truncation logic, no API calls
-- ❌ **FeedTopBar**: Static UI with navigation buttons
-- ❌ **CommentButton**: Just UI, no logic yet
+  const handleLike = (postId: string, isLiked: boolean) => {
+    likePost({ postId, isLiked });
+  };
 
-**Benefits of Selective Use:**
-- Avoid over-engineering simple components
-- Keep moderate component sizes
-- Parent components stay manageable
-- Easy to extend complex features (like, save, follow) without touching UI
-- Simpler components don't get unnecessarily complex
+  const handleSave = (postId: string, isSaved: boolean) => {
+    savePost({ postId, isSaved });
+  };
+
+  const handleFollow = (creatorId: string, isFollowing: boolean) => {
+    followCreator({ creatorId, isFollowing });
+  };
+
+  const handleShare = async (post: FeedPost) => {
+    await Share.share({ message: post.caption });
+  };
+
+  return (
+    <FeedList
+      posts={posts}
+      onLike={handleLike}
+      onSave={handleSave}
+      onFollow={handleFollow}
+      onShare={handleShare}
+      onLoadMore={fetchNextPage}
+      hasMore={hasNextPage}
+    />
+  );
+}
+```
+
+**FeedList Component:**
+```typescript
+export default function FeedList({
+  posts, onLike, onSave, onFollow, onShare, onLoadMore
+}: FeedListProps) {
+  const { activeIndex, onViewableItemsChanged } = useFeedViewability();
+
+  return (
+    <FlatList
+      data={posts}
+      renderItem={({ item, index }) => (
+        <FeedPost
+          post={item}
+          isActive={index === activeIndex}
+          onLike={onLike}
+          onSave={onSave}
+          onFollow={onFollow}
+          onShare={onShare}
+        />
+      )}
+      onViewableItemsChanged={onViewableItemsChanged}
+      onEndReached={onLoadMore}
+      pagingEnabled
+      showsVerticalScrollIndicator={false}
+    />
+  );
+}
+```
+
+**FeedPost Component:**
+```typescript
+export default function FeedPost({
+  post, isActive, onLike, onSave, onFollow, onShare
+}: FeedPostProps) {
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+
+  return (
+    <View style={styles.container}>
+      <FeedVideo uri={post.videoUrl} isActive={isActive} />
+
+      <View style={styles.overlay}>
+        <FeedTopBar />
+
+        <View style={styles.sidebar}>
+          <LikeButton
+            isLiked={post.isLikedByCurrentUser}
+            count={post.likesCount}
+            onPress={() => onLike(post.id, post.isLikedByCurrentUser)}
+          />
+          <SaveButton
+            isSaved={post.isSavedByCurrentUser}
+            count={post.savesCount}
+            onPress={() => onSave(post.id, post.isSavedByCurrentUser)}
+          />
+          <FollowButton
+            isFollowing={post.creator.isFollowing}
+            onPress={() => onFollow(post.creator.id, post.creator.isFollowing)}
+          />
+          <ShareButton onPress={() => onShare(post)} />
+          <CommentButton count={post.commentsCount} />
+        </View>
+
+        <FeedCaption
+          text={post.caption}
+          expanded={captionExpanded}
+          onToggle={() => setCaptionExpanded(!captionExpanded)}
+        />
+      </View>
+    </View>
+  );
+}
+```
+
+**Button Components (Receive Callbacks):**
+```typescript
+// LikeButton.tsx
+export default function LikeButton({ isLiked, count, onPress }: LikeButtonProps) {
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  const handlePress = () => {
+    setShowAnimation(true);
+    onPress(); // Parent's callback
+    setTimeout(() => setShowAnimation(false), 500);
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress}>
+      {isLiked ? <HeartFilled /> : <HeartOutline />}
+      <Text>{count}</Text>
+      {showAnimation && <HeartAnimation />}
+    </TouchableOpacity>
+  );
+}
+```
+
+### Query File Pattern (Following community.query.ts)
+
+**feed.query.ts (~400 lines - ALL queries/mutations):**
+```typescript
+// Infinite query
+export function useFeed() {
+  return useInfiniteQuery({
+    queryKey: QUERY_KEYS.feed.posts,
+    queryFn: ({ pageParam }) => feedService.getPosts({ cursor: pageParam }),
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: null,
+  });
+}
+
+// Like mutation with optimistic updates
+export function useLikePost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ postId, isLiked }: { postId: string; isLiked: boolean }) =>
+      isLiked ? feedService.unlikePost(postId) : feedService.likePost(postId),
+
+    onMutate: async ({ postId }) => {
+      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.feed.all });
+
+      const previousData = queryClient.getQueriesData({
+        queryKey: QUERY_KEYS.feed.all
+      });
+
+      // Optimistic update (similar to community.query.ts pattern)
+      queryClient.setQueriesData<InfiniteData<GetFeedResponse>>(
+        { predicate: (query) => query.queryKey[0] === 'feed' },
+        (oldData) => {
+          if (!oldData?.pages) return oldData;
+
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              posts: page.posts.map((post) =>
+                post.id === postId
+                  ? {
+                      ...post,
+                      isLikedByCurrentUser: !post.isLikedByCurrentUser,
+                      likesCount: post.isLikedByCurrentUser
+                        ? post.likesCount - 1
+                        : post.likesCount + 1,
+                    }
+                  : post
+              ),
+            })),
+          };
+        }
+      );
+
+      return { previousData };
+    },
+
+    onError: (error, variables, context) => {
+      if (context?.previousData) {
+        context.previousData.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+  });
+}
+
+// useSavePost() - similar pattern
+// useFollowCreator() - similar pattern
+```
 
 ### State Management Strategy
 
@@ -187,16 +346,80 @@ Keep as single components when logic is simple:
 - Background refetch on focus
 - Optimistic updates for mutations
 
-**Zustand Stores** (Client State):
-- `feed.store.ts`: Interactions (likes, saves, follows) - Set-based
-- `sync-queue.store.ts`: Pending sync actions when offline (structure only)
-- `video-cache.store.ts`: Cached video metadata (structure only)
+**Zustand Store** (Client State):
+```typescript
+// libs/stores/feed.store.ts
+interface FeedState {
+  likedPosts: Set<string>;
+  savedPosts: Set<string>;
+  followedCreators: Set<string>;
+  toggleLike: (postId: string) => void;
+  toggleSave: (postId: string) => void;
+  toggleFollow: (creatorId: string) => void;
+}
+```
 
 **Local Component State**:
 - Active post index (viewability)
 - Video play/pause/mute state (per post)
 - Caption expanded/collapsed (per post)
 - Double-tap heart animation state
+
+### Custom Hooks
+
+**use-video-player.ts (~100 lines):**
+```typescript
+export function useVideoPlayer(isActive: boolean) {
+  const videoRef = useRef<Video>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    if (isActive) {
+      videoRef.current?.playAsync();
+      setIsPlaying(true);
+    } else {
+      videoRef.current?.pauseAsync();
+      setIsPlaying(false);
+    }
+  }, [isActive]);
+
+  const toggleMute = () => {
+    videoRef.current?.setIsMutedAsync(!isMuted);
+    setIsMuted(!isMuted);
+  };
+
+  const togglePlayPause = () => {
+    if (isPlaying) {
+      videoRef.current?.pauseAsync();
+    } else {
+      videoRef.current?.playAsync();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  return { videoRef, isMuted, isPlaying, toggleMute, togglePlayPause };
+}
+```
+
+**use-feed-viewability.ts (~80 lines):**
+```typescript
+export function useFeedViewability() {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const onViewableItemsChanged = useCallback(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setActiveIndex(viewableItems[0].index ?? 0);
+    }
+  }, []);
+
+  const viewabilityConfig = {
+    itemVisiblePercentThreshold: 50,
+  };
+
+  return { activeIndex, onViewableItemsChanged, viewabilityConfig };
+}
+```
 
 ## Video Sources & Mock Data Strategy
 
@@ -232,15 +455,7 @@ const mockVideoUrls = [
 - Video durations: 10-60 seconds (short-form content)
 - Captions: Mix of short (<100 chars) and long (>100 chars) with hashtags
 
-## Video Library Research & Selection
-
-### Options Compared
-
-| Library | Pros | Cons | Verdict |
-|---------|------|------|---------|
-| **expo-av** | ✅ Built into Expo<br>✅ Simple API<br>✅ Programmatic control<br>✅ Works with gestures overlay<br>✅ Native platform support | ❌ Fewer advanced features<br>❌ Basic controls | ⭐ **SELECTED** |
-| **react-native-video** | ✅ More features<br>✅ Better performance claims<br>✅ Large community | ❌ Extra setup<br>❌ Config.plugin needed for Expo<br>❌ Platform-specific issues<br>❌ Overkill for our needs | ❌ Not needed |
-| **react-native-video-player** | ✅ Built-in controls | ❌ Less flexible<br>❌ Harder to customize<br>❌ Built on react-native-video | ❌ Too opinionated |
+## Video Library - expo-av
 
 ### Why expo-av is Perfect for Instagram Reels
 
@@ -269,7 +484,7 @@ const toggleMute = () => {
 };
 ```
 
-**3. Gesture Integration Example**
+**3. Gesture Integration**
 ```typescript
 <TapGestureHandler onActivated={handleDoubleTap} numberOfTaps={2}>
   <View>
@@ -313,10 +528,6 @@ const toggleMute = () => {
   npx expo install expo-av
   ```
 
-### Optional Dependencies (Future - Offline Support)
-- **`@react-native-community/netinfo`** - Network state detection
-- **`expo-file-system`** - Video caching to local storage
-
 ### Already Installed
 - `react-native-gesture-handler` - Double-tap to like, gesture overlays
 - `react-native-reanimated` - Heart animation, smooth transitions
@@ -325,65 +536,26 @@ const toggleMute = () => {
 - `@tanstack/react-query` - Data fetching & caching
 - `zustand` - State management
 
-## Critical Review & Validation
+## Component Size Guidelines
 
-### Potential Issues Addressed
+**Small Components** (50-100 lines):
+- ShareButton, CommentButton, FeedTopBar, FeedCaption, FollowButton
 
-**1. Over-Engineering Risk** ❌ → ✅ **FIXED**
-- Original: 32 files with Container/View for everything
-- Revised: 28 files, selective Container/View pattern
-- Only complex components split (Like, Save, Follow, FeedList, FeedPost)
-- Simple components stay single-file (Share, Comment, Video, Caption, TopBar)
+**Moderate Components** (100-150 lines):
+- FeedVideo, LikeButton, SaveButton, FeedList, use-video-player, use-feed-viewability
 
-**2. Parent Component Size** ❌ → ✅ **MANAGED**
-- FeedPost.view: ~200 lines (moderate) - just layout + composition
-- FeedPost.container: ~150 lines - interaction orchestration
-- Business logic pushed to child containers (LikeButton, SaveButton, etc.)
-- Parent stays clean and maintainable
+**Large Components** (150-250 lines):
+- FeedPost (~200 lines - orchestrates child components)
+- index.tsx (~150 lines - feed screen with hooks)
 
-**3. Component Size Balance** ✅ **OPTIMAL**
-- Small: 50-100 lines (simple UI components)
-- Moderate: 100-200 lines (video player, button views)
-- Large: 200-350 lines (list, post containers/views)
-- No components > 350 lines
-
-**4. Video Library Choice** ✅ **VALIDATED**
-- expo-av supports programmatic control (play/pause/mute)
-- Works perfectly with react-native-gesture-handler overlay
-- Double-tap, single-tap, swipe all handled separately
-- Lightweight, no extra config needed
-
-**5. Gesture Conflicts** ✅ **PREVENTED**
-- Video library renders video element only
-- Gestures handled by TapGestureHandler wrapper
-- No conflicts between video player and gesture detection
-- Tested pattern from Instagram Reels clones
-
-### Architecture Validation
-
-**Scalability** ✅
-- (tabs) subfolder allows future non-tab screens
-- Sync queue structure ready for offline expansion
-- Video cache structure ready for caching
-- Each interaction component independently extensible
-
-**Maintainability** ✅
-- Clear separation: Data (services) → State (stores) → UI (components)
-- Container/View only where needed
-- Moderate component sizes
-- Well-defined interfaces
-
-**Performance** ✅
-- React Query with infinite scroll pagination
-- Viewability-based video autoplay (plays only visible video)
-- Optimistic updates for instant UI feedback
-- CustomFlatList with proper pagination
+**Query File** (~400 lines):
+- feed.query.ts - ALL mutations with optimistic updates
 
 ## Success Criteria
 ✅ Vertical scrolling feed with full-screen video posts (expo-av)
 ✅ 5-tab bottom navigation with icons in (tabs) subfolder
 ✅ Online video URLs from Pexels/Pixabay (15-20 real videos)
-✅ Container/View pattern for complex components ONLY (selective use)
+✅ Single component files (no container/view splits)
 ✅ Like, save, follow interactions (optimistic updates, client-side)
 ✅ Share opens native share sheet (Share.share())
 ✅ Double-tap to like with heart animation (TapGestureHandler)
@@ -391,46 +563,17 @@ const toggleMute = () => {
 ✅ Caption truncation with Read more/less (local state)
 ✅ Creator avatar shows + button when not following
 ✅ Infinite scroll pagination (React Query useInfiniteQuery)
-✅ Pull-to-refresh functionality (CustomFlatList)
+✅ Pull-to-refresh functionality (use-pull-to-refresh hook)
 ✅ Dummy screens for Groups, Chat, Create
 ✅ Top bar with logo, saved, search icons
 ✅ Mock data with 60 posts across 6 pages
-✅ Scalable structure for future offline sync (structure only)
-✅ Sync queue and video cache prepared (placeholders)
-✅ Moderate component sizes (50-350 lines max)
-✅ Parent components stay clean (no bloat)
-
-## Component Size Guidelines
-
-**Small Components** (50-100 lines):
-- ShareButton, CommentButton, FeedTopBar, FeedCaption
-
-**Moderate Components** (100-200 lines):
-- FeedVideo, LikeButton.view, SaveButton.view, FollowButton.view
-
-**Large Components** (200-350 lines):
-- FeedList.container, FeedPost.container, FeedList.view, FeedPost.view
-
-**Containers** (100-150 lines):
-- LikeButton.container, SaveButton.container, FollowButton.container
-
-**Parent Component** (FeedPost.view: ~200 lines):
-- Orchestrates child components
-- Layout and composition
-- Passes props down
-- Doesn't contain business logic
+✅ Custom hooks for complex logic
+✅ Parent orchestration pattern
+✅ One comprehensive query file
 
 ## Implementation Time Estimate
-- Phase 1-5 (Foundation + Hooks): ~3-4 hours
-- Phase 6-10 (Components): ~5-6 hours
-- Phase 11 (Tab Integration): ~1-2 hours
-- Phase 12 (Exports & Testing): ~1 hour
-- **Total**: ~10-13 hours for complete implementation
-
-## Future Expansion Path
-When implementing offline sync later:
-1. Fill in sync queue placeholders in `sync-queue.service.ts`
-2. Add NetInfo listener in LikeButton/SaveButton/FollowButton containers
-3. Implement video caching in `video-cache.service.ts`
-4. Hook up sync queue to mutation containers
-5. **No refactoring needed** - architecture already supports it!
+- Phase 1-4 (Foundation + Hooks): ~3-4 hours
+- Phase 5-7 (Components): ~4-5 hours
+- Phase 8 (Tab Integration): ~1-2 hours
+- Phase 9 (Exports & Testing): ~1 hour
+- **Total**: ~9-12 hours for complete implementation
