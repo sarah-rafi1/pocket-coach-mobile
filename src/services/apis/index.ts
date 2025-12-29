@@ -7,7 +7,7 @@ import {
 } from '../../utils';
 
 const axiosInstance = axios.create({
-  baseURL: process.env.API_BASE_URL || 'http://34.201.245.56:3000',
+  baseURL: process.env.API_BASE_URL || 'http://18.232.64.216:3000',
   timeout: 20000,
 });
 

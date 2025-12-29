@@ -490,13 +490,18 @@ export const resendConfirmationCode = async (username: string): Promise<void> =>
 };
 
 export const signOut = async (): Promise<void> => {
+  // Get refresh token from both storage locations
   const refreshToken = await AsyncStorage.getItem("refreshToken");
+  const cognitoTokens = await retrieveCognitoTokens();
+  const cognitoRefreshToken = cognitoTokens?.refresh_token;
   
-  if (refreshToken) {
+  // Revoke Cognito refresh token if available
+  const tokenToRevoke = cognitoRefreshToken || refreshToken;
+  if (tokenToRevoke) {
     const cognitoRevokeUrl = `https://${config.cognitoDomain}/oauth2/revoke`;
     
     const params = new URLSearchParams({
-      token: refreshToken,
+      token: tokenToRevoke,
       client_id: config.clientId,
     });
     
@@ -517,7 +522,21 @@ export const signOut = async (): Promise<void> => {
     }
   }
   
+  // Clear Google session in WebBrowser by opening logout URL
+  try {
+    const logoutUrl = `https://${config.cognitoDomain}/logout?client_id=${config.clientId}&logout_uri=${encodeURIComponent('pocketcoach://logout')}`;
+    console.log('🚪 [COGNITO LOGOUT URL] =>', logoutUrl);
+    
+    await WebBrowser.openAuthSessionAsync(logoutUrl, 'pocketcoach://logout');
+    console.log('🚪 [COGNITO LOGOUT] => Opened logout URL successfully');
+  } catch (error) {
+    console.log('⚠️ [COGNITO LOGOUT] => Error opening logout URL:', error);
+    // Continue with logout even if this fails
+  }
+  
+  // Clear all local storage
   await AsyncStorage.clear();
+  await removeCognitoTokens();
 };
 
 export const getStoredTokens = async (): Promise<{

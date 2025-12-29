@@ -8,7 +8,7 @@ interface Config {
 const getEnvVars = (): Config => {
   // For now, we'll use environment variable or fallback to the ngrok URL
   // In production, this should come from your build process or app config
-  const API_BASE_URL = process.env.API_BASE_URL || 'http://34.201.245.56:3000';
+  const API_BASE_URL = process.env.API_BASE_URL || 'http://18.232.64.216:3000';
 
   return {
     API_BASE_URL,

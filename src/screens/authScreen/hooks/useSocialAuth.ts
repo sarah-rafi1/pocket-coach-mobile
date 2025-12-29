@@ -97,29 +97,17 @@ export function useSocialAuth({
           const userProfile = await userApi.getUserProfile();
           
           if (!userProfile.data.username || !userProfile.data.display_name || !userProfile.data.interest_slugs || userProfile.data.interest_slugs.length === 0) {
-            if (!userProfile.data.email_verified) {
-              await userApi.sendVerificationCode(userEmail);
-              setModalContent({
-                title: "Email Verification Required",
-                message: "Please verify your email address to continue.",
-                action: () => {
-                  setShowSuccessModal(false);
-                  navigation.navigate('password-recovery-screen', { mode: 'email-verification', email: userEmail, fromLogin: true });
-                }
-              });
-              setShowSuccessModal(true);
-            } else {
-              setUser({ id: userProfile.data.id || "google_user", email: userEmail, firstName: userEmail.split('@')[0] });
-              setModalContent({
-                title: "Complete Your Profile",
-                message: "Please complete your profile to continue.",
-                action: () => {
-                  setShowSuccessModal(false);
-                  navigation.navigate('profile-completion-screen');
-                }
-              });
-              setShowSuccessModal(true);
-            }
+            // For social logins, skip email verification and go directly to profile completion
+            setUser({ id: userProfile.data.id || "google_user", email: userEmail, firstName: userEmail.split('@')[0] });
+            setModalContent({
+              title: "Complete Your Profile",
+              message: "Please complete your profile to continue.",
+              action: () => {
+                setShowSuccessModal(false);
+                navigation.navigate('profile-completion-screen');
+              }
+            });
+            setShowSuccessModal(true);
           } else {
             setUser({ id: userProfile.data.id, email: userEmail, firstName: userProfile.data.display_name?.split(' ')[0] || userEmail.split('@')[0] });
             setModalContent({

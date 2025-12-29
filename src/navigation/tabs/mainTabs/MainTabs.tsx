@@ -17,6 +17,7 @@ import {
   ChatScreen, 
   ProfileScreen 
 } from "../../../screens";
+import { GradientIcon } from "../../../components";
 
 const Tab = createBottomTabNavigator<AppRoutes>();
 
@@ -54,11 +55,44 @@ export function MainTabs() {
         },
         tabBarIcon: ({ focused }) => {
           const iconSize = 24;
+          const gradientColors: readonly [string, string] = ['#00C6FF', '#0072FF'];
+          
+          // Wrap all icons in a container to ensure proper spacing
+          const IconContainer = ({ children }: { children: React.ReactNode }) => (
+            <View style={{
+              width: 32,
+              height: 32,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              {children}
+            </View>
+          );
           
           if (route.name === 'Feed') {
-            return <FeedIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+            return (
+              <IconContainer>
+                {focused ? (
+                  <GradientIcon colors={gradientColors} size={iconSize}>
+                    <FeedIcon color="#FFFFFF" size={iconSize} />
+                  </GradientIcon>
+                ) : (
+                  <FeedIcon color="#9CA3AF" size={iconSize} />
+                )}
+              </IconContainer>
+            );
           } else if (route.name === 'Groups') {
-            return <GroupsIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+            return (
+              <IconContainer>
+                {focused ? (
+                  <GradientIcon colors={gradientColors} size={iconSize}>
+                    <GroupsIcon color="#FFFFFF" size={iconSize} />
+                  </GradientIcon>
+                ) : (
+                  <GroupsIcon color="#9CA3AF" size={iconSize} />
+                )}
+              </IconContainer>
+            );
           } else if (route.name === 'Create') {
             return (
               <View style={{
@@ -74,9 +108,29 @@ export function MainTabs() {
               </View>
             );
           } else if (route.name === 'Chat') {
-            return <ChatIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+            return (
+              <IconContainer>
+                {focused ? (
+                  <GradientIcon colors={gradientColors} size={iconSize}>
+                    <ChatIcon color="#FFFFFF" size={iconSize} />
+                  </GradientIcon>
+                ) : (
+                  <ChatIcon color="#9CA3AF" size={iconSize} />
+                )}
+              </IconContainer>
+            );
           } else if (route.name === 'Profile') {
-            return <ProfileIcon color={focused ? '#3B82F6' : '#9CA3AF'} size={iconSize} />;
+            return (
+              <IconContainer>
+                {focused ? (
+                  <GradientIcon colors={gradientColors} size={iconSize}>
+                    <ProfileIcon color="#FFFFFF" size={iconSize} />
+                  </GradientIcon>
+                ) : (
+                  <ProfileIcon color="#9CA3AF" size={iconSize} />
+                )}
+              </IconContainer>
+            );
           }
           return null;
         },
