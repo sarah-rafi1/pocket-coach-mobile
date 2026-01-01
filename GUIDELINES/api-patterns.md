@@ -6,6 +6,7 @@ Guidelines for handling API responses, service layer organization, and centraliz
 
 Inspired by your backend's `asyncHandler` pattern, we use React Query as our error handler wrapper.
 
+
 ### Backend Pattern (Your mend-backend):
 ```javascript
 // ❌ Without asyncHandler - repetitive try-catch
